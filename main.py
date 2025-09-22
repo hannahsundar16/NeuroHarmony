@@ -41,7 +41,7 @@ def get_user_simple() -> Optional[Dict[str, Any]]:
         st.markdown(f"Hello, <span style='color: orange; font-weight: bold;'>{name}</span>!", unsafe_allow_html=True)
         return {"name": name, "email": email}
     
-        return None
+    return None
 
 def main():
     
