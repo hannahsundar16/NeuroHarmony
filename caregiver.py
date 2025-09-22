@@ -169,36 +169,8 @@ def run_predictions_on_uploaded_data():
     X = df[used_cols].values
 
     model = results['model']
-
-    created_prefixes = (
-        'engagement_score', 'focus_score', 'relaxation_score',
-        'predicted_',
-    )
-    created_exact = {
-        'delta', 'theta', 'alpha', 'beta', 'gamma',
-        'melody_category', 'Melody #', 'timestamp'
-    }
-    def is_created(col: str) -> bool:
-        if col in created_exact:
-            return True
-        if any(col.startswith(p) for p in created_prefixes):
-            return True
-        if col.endswith('_normalized'):
-            return True
-        return False
-
-    used_cols = [
-        c for c in df.columns
-        if not is_created(c) and pd.api.types.is_numeric_dtype(df[c])
-    ]
-    if not used_cols:
-        st.error("No suitable numeric feature columns found for prediction.")
-        return
-    X = df[used_cols].values
-
-    model = results['model']
-
-try:
+  
+    try:
         # Predict classes
         y_pred = model.predict(X)
         df_out = df.copy()
