@@ -15,7 +15,7 @@ st.set_page_config(
 IMAGE_ADDRESS = "https://www.denvercenter.org/wp-content/uploads/2024/10/music-therapy.jpg"
 
 CAREGIVER_EMAILS = [
-    "vani.kandasamy@pyxeda.ai"
+    "hannahsundar2009@gmail.com"
 ]
 
 def is_caregiver(email: str) -> bool:
