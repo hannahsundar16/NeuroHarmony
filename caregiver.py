@@ -1,273 +1,189 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
 from pathlib import Path
 import os
 import joblib
-from datetime import datetime, timedelta
 from db import DDB
 
+# Class labels mapping (1-based indexing):
+# 1->Classical, 2->Rock, 3->Pop, 4->Rap, 5->R&B
 CLASS_LABELS = ["Classical", "Rock", "Pop", "Rap", "R&B"]
+ELECTRODES = ['TP9', 'AF7', 'AF8', 'TP10']
+BANDS = ['Delta', 'Theta', 'Alpha', 'Beta', 'Gamma']
 
 def class_value_to_label(val) -> str:
+    """Map a model class value to a readable label using 1-based indexing."""
     try:
         n = int(val)
         if 1 <= n <= len(CLASS_LABELS):
             return CLASS_LABELS[n-1]
-    except Exception:
+    except (ValueError, TypeError):
         pass
-    # try direct string match
-    try:
-        s = str(val)
-        if s in CLASS_LABELS:
-            return s
-    except Exception:
-        pass
-    return f"Class {val}"
+    return str(val) if str(val) in CLASS_LABELS else f"Class {val}"
+
+def calculate_band_means(row: pd.Series, band: str) -> float:
+    """Calculate mean of a frequency band across all electrodes."""
+    band_means = [row.get(f"{band}_{elec}_mean", 0) for elec in ELECTRODES]
+    return sum(band_means) / len(ELECTRODES)
 
 def load_model():
+    """Load default pre-trained model if available."""
     try:
         model_path = Path(__file__).parent / "best_Sub03_RF"
-        if not model_path.exists() or not os.access(str(model_path), os.R_OK):
-            return None
-        model = joblib.load(str(model_path))
-        return model
+        if model_path.exists() and os.access(str(model_path), os.R_OK):
+            return joblib.load(str(model_path))
     except Exception:
-        return None
+        pass
+    return None
 
 def calculate_engagement_score(row: pd.Series) -> float:
-    """Engagement: Mean(Beta+Gamma) - Mean(Alpha+Theta) across electrodes."""
-    beta_mean = (
-        row.get('Beta_TP9_mean', 0) + row.get('Beta_AF7_mean', 0) +
-        row.get('Beta_AF8_mean', 0) + row.get('Beta_TP10_mean', 0)
-    ) / 4
-    gamma_mean = (
-        row.get('Gamma_TP9_mean', 0) + row.get('Gamma_AF7_mean', 0) +
-        row.get('Gamma_AF8_mean', 0) + row.get('Gamma_TP10_mean', 0)
-    ) / 4
-    alpha_mean = (
-        row.get('Alpha_TP9_mean', 0) + row.get('Alpha_AF7_mean', 0) +
-        row.get('Alpha_AF8_mean', 0) + row.get('Alpha_TP10_mean', 0)
-    ) / 4
-    theta_mean = (
-        row.get('Theta_TP9_mean', 0) + row.get('Theta_AF7_mean', 0) +
-        row.get('Theta_AF8_mean', 0) + row.get('Theta_TP10_mean', 0)
-    ) / 4
-    high_freq = (beta_mean + gamma_mean) / 2
-    low_freq = (alpha_mean + theta_mean) / 2
-    return float(high_freq - low_freq)
+    """Calculate engagement score from beta and gamma vs alpha and theta bands."""
+    beta_mean = calculate_band_means(row, 'Beta')
+    gamma_mean = calculate_band_means(row, 'Gamma')
+    alpha_mean = calculate_band_means(row, 'Alpha')
+    theta_mean = calculate_band_means(row, 'Theta')
+    return (beta_mean + gamma_mean) / 2 - (alpha_mean + theta_mean) / 2
 
 def calculate_focus_score(row: pd.Series) -> float:
-    """Focus: Theta/Beta ratio (lower is better focus)."""
-    beta_mean = (
-        row.get('Beta_TP9_mean', 0) + row.get('Beta_AF7_mean', 0) +
-        row.get('Beta_AF8_mean', 0) + row.get('Beta_TP10_mean', 0)
-    ) / 4
-    theta_mean = (
-        row.get('Theta_TP9_mean', 0) + row.get('Theta_AF7_mean', 0) +
-        row.get('Theta_AF8_mean', 0) + row.get('Theta_TP10_mean', 0)
-    ) / 4
-    if beta_mean == 0:
-        return float('inf')
-    return float(theta_mean / beta_mean)
+    """Calculate focus score as Theta/Beta ratio."""
+    beta_mean = calculate_band_means(row, 'Beta')
+    theta_mean = calculate_band_means(row, 'Theta')
+    return float('inf') if beta_mean == 0 else theta_mean / beta_mean
 
 def calculate_relaxation_score(row: pd.Series) -> float:
-    """Relaxation: Mean(Alpha+Theta) - Mean(Beta+Gamma) across electrodes."""
-    alpha_mean = (
-        row.get('Alpha_TP9_mean', 0) + row.get('Alpha_AF7_mean', 0) +
-        row.get('Alpha_AF8_mean', 0) + row.get('Alpha_TP10_mean', 0)
-    ) / 4
-    theta_mean = (
-        row.get('Theta_TP9_mean', 0) + row.get('Theta_AF7_mean', 0) +
-        row.get('Theta_AF8_mean', 0) + row.get('Theta_TP10_mean', 0)
-    ) / 4
-    beta_mean = (
-        row.get('Beta_TP9_mean', 0) + row.get('Beta_AF7_mean', 0) +
-        row.get('Beta_AF8_mean', 0) + row.get('Beta_TP10_mean', 0)
-    ) / 4
-    gamma_mean = (
-        row.get('Gamma_TP9_mean', 0) + row.get('Gamma_AF7_mean', 0) +
-        row.get('Gamma_AF8_mean', 0) + row.get('Gamma_TP10_mean', 0)
-    ) / 4
-    calm_freq = (alpha_mean + theta_mean) / 2
-    active_freq = (beta_mean + gamma_mean) / 2
-    return float(calm_freq - active_freq)
+    """Calculate relaxation score from alpha and theta vs beta and gamma bands."""
+    return -calculate_engagement_score(row)  # Engagement and relaxation are inversely related
 
 def process_eeg_scores(df: pd.DataFrame) -> pd.DataFrame:
     """Compute cognitive scores per row without any grouping/aggregation."""
     out = df.copy()
-
-    # Compute row-wise (no groupby) aggregate bands if columns exist
-    for band in ['Delta', 'Theta', 'Alpha', 'Beta', 'Gamma']:
-        band_cols = [c for c in out.columns if c.startswith(f"{band}_") and c.endswith('_mean')]
-        if band_cols:
-            out[band.lower()] = out[band_cols].mean(axis=1)
-
-    # Cognitive scores per row
-    out['engagement_score'] = out.apply(calculate_engagement_score, axis=1)
-    out['focus_score'] = out.apply(calculate_focus_score, axis=1)
-    out['relaxation_score'] = out.apply(calculate_relaxation_score, axis=1)
-
-    # Normalize to 0-10 scale per-file (still row-specific, not grouped)
-    for col in ['engagement_score', 'focus_score', 'relaxation_score']:
-        min_v = out[col].min()
-        max_v = out[col].max()
-        if pd.isna(min_v) or pd.isna(max_v) or max_v == min_v:
-            out[f'{col}_normalized'] = 5.0
-        else:
-            out[f'{col}_normalized'] = 10 * (out[col] - min_v) / (max_v - min_v)
-
+    
+    # Add mean band values
+    for band in BANDS:
+        out[band.lower()] = out.apply(lambda r: calculate_band_means(r, band), axis=1)
+    
+    # Calculate cognitive scores
+    score_functions = {
+        'engagement_score': calculate_engagement_score,
+        'focus_score': calculate_focus_score,
+        'relaxation_score': calculate_relaxation_score
+    }
+    
+    for score_name, score_func in score_functions.items():
+        out[score_name] = out.apply(score_func, axis=1)
+        # Normalize to 0-10 scale
+        min_v = out[score_name].min()
+        max_v = out[score_name].max()
+        norm_col = f'{score_name}_normalized'
+        out[norm_col] = 5.0 if (pd.isna(min_v) or pd.isna(max_v) or max_v == min_v) else \
+                       10 * (out[score_name] - min_v) / (max_v - min_v)
+    
     return out
 
 def initialize_caregiver_session_state():
-    if 'processed_eeg_data' not in st.session_state:
-        st.session_state.processed_eeg_data = None
-    if 'ml_model_results' not in st.session_state:
-        model = load_model()
-        st.session_state.ml_model_results = {
-            'model': model,
-            'loaded_from_file': bool(model),
-            'accuracy': 0.0,
-        }
-    # Track selected patient for recommendations linkage
-    if 'patient_id' not in st.session_state:
-        st.session_state.patient_id = ""
+    """Initialize session state variables."""
+    defaults = {
+        'processed_eeg_data': None,
+        'ml_model_results': {'model': load_model(), 'loaded_from_file': False, 'accuracy': 0.0},
+        'patient_id': ""
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
 def run_predictions_on_uploaded_data():
-    results = st.session_state.get('ml_model_results')
+    """Run model predictions on the uploaded EEG data."""
+    results = st.session_state.get('ml_model_results', {})
     df = st.session_state.get('processed_eeg_data')
-    if not results or not results.get('model') or df is None or df.empty:
+    
+    if not results.get('model') or df is None or df.empty:
         st.warning("Model or data not available.")
         return
-       
-    created_prefixes = (
-        'engagement_score', 'focus_score', 'relaxation_score',
-        'predicted_',
-    )
-    created_exact = {
-        'delta', 'theta', 'alpha', 'beta', 'gamma',
-        'melody_category', 'Melody #', 'timestamp'
-    }
-    def is_created(col: str) -> bool:
-        if col in created_exact:
-            return True
-        if any(col.startswith(p) for p in created_prefixes):
-            return True
-        if col.endswith('_normalized'):
-            return True
-        return False
 
+    # Get feature columns
+    exclude_prefixes = ('engagement_score', 'focus_score', 'relaxation_score', 'predicted_')
+    exclude_exact = {'delta', 'theta', 'alpha', 'beta', 'gamma', 'melody_category', 'Melody #', 'timestamp'}
+    
     used_cols = [
         c for c in df.columns
-        if not is_created(c) and pd.api.types.is_numeric_dtype(df[c])
+        if not (any(c.startswith(p) for p in exclude_prefixes) or 
+                c in exclude_exact or 
+                c.endswith('_normalized') or
+                not pd.api.types.is_numeric_dtype(df[c]))
     ]
+    
     if not used_cols:
         st.error("No suitable numeric feature columns found for prediction.")
         return
-    X = df[used_cols].values
 
-    model = results['model']
-  
     try:
-        # Predict classes
-        y_pred = model.predict(X)
+        X = df[used_cols].values
+        model = results['model']
         df_out = df.copy()
+        
+        # Make predictions
+        y_pred = model.predict(X)
         df_out['predicted_class'] = y_pred
-        # Map to human-readable labels using 1-based indexing via class_value_to_label
-        try:
-            if hasattr(model, 'classes_') and len(getattr(model, 'classes_')):
-                classes = list(model.classes_)
-                # Map predicted class values directly to labels based on their value (1-based expected)
-                val_to_label = {cls_val: class_value_to_label(cls_val) for cls_val in classes}
-                df_out['predicted_label'] = [val_to_label.get(val, class_value_to_label(val)) for val in y_pred]
-            else:
-                # Fallback: map predicted values directly assuming 1-based values
-                df_out['predicted_label'] = [class_value_to_label(i) for i in y_pred]
-        except Exception:
-            pass
-
-        # Predict probabilities if available
+        
+        # Map to human-readable labels
+        if hasattr(model, 'classes_'):
+            class_mapping = {cls: class_value_to_label(cls) for cls in model.classes_}
+            df_out['predicted_label'] = [class_mapping.get(c, str(c)) for c in y_pred]
+        
+        # Get probabilities if available
         if hasattr(model, 'predict_proba'):
             proba = model.predict_proba(X)
-            max_proba = proba.max(axis=1)
-            top_idx = proba.argmax(axis=1)  # positions in classes_
-            df_out['predicted_proba_max'] = max_proba
-            df_out['predicted_proba_top_index'] = top_idx
-            # Also store the top label resolved by classes_ ordering
-            try:
-                if hasattr(model, 'classes_') and len(getattr(model, 'classes_')):
-                    classes = list(model.classes_)
-                    df_out['predicted_top_label'] = [class_value_to_label(classes[i]) for i in top_idx]
-            except Exception:
-                pass
-
+            df_out['predicted_proba_max'] = proba.max(axis=1)
+            df_out['predicted_proba_top_index'] = proba.argmax(axis=1)
+            
+            if hasattr(model, 'classes_'):
+                df_out['predicted_top_label'] = [class_value_to_label(model.classes_[i]) 
+                                              for i in df_out['predicted_proba_top_index']]
+        
         st.session_state.processed_eeg_data = df_out
         st.success("Predictions added to the dataset.")
-
-        if 'predicted_class' in df_out.columns:
-            st.subheader("Prediction Summary")
-            st.write(df_out['predicted_class'].value_counts().rename_axis('class').to_frame('count'))
-
-        # Save top category recommendations for the specified patient
+        
+        # Save recommendations if patient ID is provided
         patient_id = (st.session_state.get('patient_id') or "").strip()
-        if patient_id:
-            # Prefer probability-weighted top labels if available, else use predicted_label counts
-            if 'predicted_top_label' in df_out.columns and 'predicted_proba_max' in df_out.columns:
-                agg = (
-                    df_out.groupby('predicted_top_label')['predicted_proba_max']
-                    .sum()
-                    .sort_values(ascending=False)
-                )
-                total = float(agg.sum()) or 1.0
-                ranked = [{
-                    'category': str(cat),
-                    'score': float(val / total)
-                } for cat, val in agg.items()]
-            elif 'predicted_label' in df_out.columns:
-                vc = df_out['predicted_label'].value_counts(normalize=True)
-
-                ranked = [{
-                    'category': str(cat),
-                    'score': float(score)
-                } for cat, score in vc.items()]
-            else:
-                ranked = []
-
-            if ranked:
-                # Compute cognitive metric averages from processed data (0-10 scale)
-                avg_eng = float(df_out['engagement_score_normalized'].mean()) if 'engagement_score_normalized' in df_out.columns else None
-                # Focus is inverted so higher is better (10 - normalized theta/beta)
-                avg_foc = float((10 - df_out['focus_score_normalized']).mean()) if 'focus_score_normalized' in df_out.columns else None
-                avg_rel = float(df_out['relaxation_score_normalized'].mean()) if 'relaxation_score_normalized' in df_out.columns else None
-
-                ddb = DDB()
-                ok = ddb.put_recommendations(
-                    patient_id,
-                    categories=ranked,
-                    cognitive_scores={
-                        'engagement': round(avg_eng, 2) if avg_eng is not None else None,
-                        'focus': round(avg_foc, 2) if avg_foc is not None else None,
-                        'relaxation': round(avg_rel, 2) if avg_rel is not None else None,
-                    }
-                )
-                if ok:
-                    st.success(f"Saved caregiver playlist recommendations for '{patient_id}'.")
-                else:
-                    st.error("Failed to save recommendations.")
-
-        else:
-            st.info("Enter a Patient ID (email) in EEG Upload to save playlist recommendations.")
+        if patient_id and 'predicted_label' in df_out.columns:
+            save_recommendations(patient_id, df_out)
+            
     except Exception as e:
         st.error(f"Error running predictions: {e}")
 
+def save_recommendations(patient_id: str, df: pd.DataFrame):
+    """Save recommendations for a patient to the database."""
+    if 'predicted_top_label' in df.columns and 'predicted_proba_max' in df.columns:
+        agg = df.groupby('predicted_top_label')['predicted_proba_max'].sum()
+        ranked = [{'category': str(cat), 'score': float(val/agg.sum())} 
+                 for cat, val in agg.items()]
+    else:
+        vc = df['predicted_label'].value_counts(normalize=True)
+        ranked = [{'category': str(cat), 'score': float(score)} 
+                 for cat, score in vc.items()]
+    
+    if ranked:
+        cognitive_scores = {
+            'engagement': round(float(df['engagement_score_normalized'].mean()), 2) 
+                         if 'engagement_score_normalized' in df.columns else None,
+            'focus': round(float((10 - df['focus_score_normalized']).mean()), 2) 
+                     if 'focus_score_normalized' in df.columns else None,
+            'relaxation': round(float(df['relaxation_score_normalized'].mean()), 2) 
+                         if 'relaxation_score_normalized' in df.columns else None
+        }
+        
+        ddb = DDB()
+        if ddb.put_recommendations(patient_id, categories=ranked, cognitive_scores=cognitive_scores):
+            st.success(f"Saved caregiver playlist recommendations for '{patient_id}'.")
+        else:
+            st.error("Failed to save recommendations.")
+
 def ml_model_dashboard():
-    st.subheader("🤖 ML Model Performance")
+    st.subheader(" ML Model Performance")
     results = st.session_state.ml_model_results
 
     if results and results.get('loaded_from_file'):
-        st.success("✅ Using Pre-trained Model: best_Sub03_RF")
+        st.success(" Using Pre-trained Model: best_Sub03_RF")
         st.info("Upload EEG data to run per-row predictions and review cognitive scores.")
         # Allow running predictions if data exists
         df = st.session_state.get('processed_eeg_data')
@@ -276,7 +192,6 @@ def ml_model_dashboard():
                 run_predictions_on_uploaded_data()
             # Show a compact prediction analytics pie (no tables)
             df = st.session_state.get('processed_eeg_data')
-
             try:
                 if df is not None and 'predicted_proba_max' in df.columns:
                     last_row = df.iloc[-1]
@@ -285,7 +200,7 @@ def ml_model_dashboard():
                     # Prefer predicted_top_label if present
                     if 'predicted_top_label' in df.columns and isinstance(last_row.get('predicted_top_label'), str):
                         label = str(last_row['predicted_top_label'])
-            else:
+                    else:
                         # Map via model.classes_ and top index if available
                         if 'predicted_proba_top_index' in df.columns:
                             try:
@@ -296,12 +211,13 @@ def ml_model_dashboard():
                                     label = class_value_to_label(cls_val)
                             except Exception:
                                 pass
-            if not label:
+                    # Final fallback using predicted_label or class index
+                    if not label:
                         if 'predicted_label' in df.columns and isinstance(last_row.get('predicted_label'), str):
                             label = str(last_row['predicted_label'])
                         else:
                             label = "Top Class"
-            
+
                     # Color by strength
                     if prob >= 0.8:
                         color = "#2ecc71"  # green
@@ -325,12 +241,11 @@ def ml_model_dashboard():
                     st.plotly_chart(pie_fig, use_container_width=True)
             except Exception:
                 pass
-            
     else:
         st.warning("No model found. Place 'best_Sub03_RF' (joblib) in project root to enable predictions.")
 
 def cognitive_insights_dashboard(df: pd.DataFrame):
-    st.subheader("🧠 Cognitive Scores Summary")
+    st.subheader(" Cognitive Scores Summary")
 
     if df is None or df.empty:
         st.info("No data loaded. Use 'EEG Data Upload' to add a CSV.")
@@ -340,7 +255,7 @@ def cognitive_insights_dashboard(df: pd.DataFrame):
     avg_eng = float(df['engagement_score_normalized'].mean()) if 'engagement_score_normalized' in df.columns else None
     avg_foc_inv = float((10 - df['focus_score_normalized']).mean()) if 'focus_score_normalized' in df.columns else None
     avg_rel = float(df['relaxation_score_normalized'].mean()) if 'relaxation_score_normalized' in df.columns else None
-            
+
     col1, col2, col3 = st.columns(3)
     with col1:
         if avg_eng is not None:
@@ -357,7 +272,6 @@ def cognitive_insights_dashboard(df: pd.DataFrame):
             )])
             pie_fig.update_layout(title=f"Engagement Achieved: {achieved:.1f}/10")
             st.plotly_chart(pie_fig, use_container_width=True)
-
     with col2:
         if avg_foc_inv is not None:
             st.metric("Avg Focus", f"{avg_foc_inv:.1f}/10")
@@ -370,32 +284,33 @@ def caregiver_dashboard():
     initialize_caregiver_session_state()
 
     user_info = st.session_state.get('user_info', {'name': 'Caregiver'})
-    st.title("👩‍⚕️ Caregiver ML Analytics Dashboard")
+    st.title(" Caregiver ML Analytics Dashboard")
     st.markdown(f"Welcome, **{user_info.get('name', 'Caregiver')}**. Upload EEG CSV and review per-row insights.")
 
     # Sidebar navigation
     with st.sidebar:
-        st.markdown("### 🧠 ML Analytics")
+        st.markdown("### ML Analytics")
         page = st.selectbox(
             "Select Analysis",
             ["ML Model Performance", "Cognitive Insights", "EEG Data Upload"],
         )
 
-        if page == "ML Model Performance":
+    # Main pages
+    if page == "ML Model Performance":
         ml_model_dashboard()
 
     elif page == "Cognitive Insights":
         cognitive_insights_dashboard(st.session_state.processed_eeg_data)
 
     elif page == "EEG Data Upload":
-        st.subheader("📤 Upload EEG CSV (Generic)")
+        st.subheader(" Upload EEG CSV (Generic)")
         # Capture patient identifier to link recommendations (use patient's email for best results)
         st.session_state.patient_id = st.text_input(
             "Patient ID (use patient's email to link to General User)",
             value=st.session_state.get('patient_id', ""),
             placeholder="name@example.com",
         )
-    
+
         uploaded_file = st.file_uploader("Choose EEG CSV file", type="csv")
         if uploaded_file is not None:
             try:
@@ -411,4 +326,6 @@ def caregiver_dashboard():
             except Exception as e:
                 st.error(f"Error processing file: {e}")
 
-        
+def caregiver_dashboard_legacy():
+    """[REMOVED] Legacy patient-specific dashboard code has been removed."""
+    st.error("This function is deprecated and not available.")
