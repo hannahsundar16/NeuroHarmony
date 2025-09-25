@@ -9,9 +9,18 @@ import joblib
 from datetime import datetime, timedelta
 from db import DDB
 
+# Class labels mapping (1-based indexing):
+# 1->Classical, 2->Rock, 3->Pop, 4->Rap, 5->R&B
 CLASS_LABELS = ["Classical", "Rock", "Pop", "Rap", "R&B"]
 
 def class_value_to_label(val) -> str:
+    """Map a model class value to a readable label using 1-based indexing.
+
+    Rules:
+    - If val is an int/str-int n in [1..len(CLASS_LABELS)], map to CLASS_LABELS[n-1].
+    - If val is already a string matching one of CLASS_LABELS, return as-is.
+    - Else, fallback to f"Class {val}".
+    """
     try:
         n = int(val)
         if 1 <= n <= len(CLASS_LABELS):
@@ -27,7 +36,17 @@ def class_value_to_label(val) -> str:
         pass
     return f"Class {val}"
 
+
+# -----------------------------
+# Model loading (optional)
+# -----------------------------
 def load_model():
+    """Load default pre-trained model if available (best_RF_with_time).
+
+    The model file is expected to be placed at project root path
+    as "best_RF_with_time" (a joblib artifact). If not found, we proceed
+    without a model.
+    """
     try:
         model_path = Path(__file__).parent / "best_Sub03_RF"
         if not model_path.exists() or not os.access(str(model_path), os.R_OK):
@@ -37,6 +56,10 @@ def load_model():
     except Exception:
         return None
 
+
+# -----------------------------
+# Cognitive score helpers
+# -----------------------------
 def calculate_engagement_score(row: pd.Series) -> float:
     """Engagement: Mean(Beta+Gamma) - Mean(Alpha+Theta) across electrodes."""
     beta_mean = (
@@ -59,6 +82,7 @@ def calculate_engagement_score(row: pd.Series) -> float:
     low_freq = (alpha_mean + theta_mean) / 2
     return float(high_freq - low_freq)
 
+
 def calculate_focus_score(row: pd.Series) -> float:
     """Focus: Theta/Beta ratio (lower is better focus)."""
     beta_mean = (
@@ -72,6 +96,7 @@ def calculate_focus_score(row: pd.Series) -> float:
     if beta_mean == 0:
         return float('inf')
     return float(theta_mean / beta_mean)
+
 
 def calculate_relaxation_score(row: pd.Series) -> float:
     """Relaxation: Mean(Alpha+Theta) - Mean(Beta+Gamma) across electrodes."""
@@ -94,6 +119,7 @@ def calculate_relaxation_score(row: pd.Series) -> float:
     calm_freq = (alpha_mean + theta_mean) / 2
     active_freq = (beta_mean + gamma_mean) / 2
     return float(calm_freq - active_freq)
+
 
 def process_eeg_scores(df: pd.DataFrame) -> pd.DataFrame:
     """Compute cognitive scores per row without any grouping/aggregation."""
@@ -121,6 +147,10 @@ def process_eeg_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     return out
 
+
+# -----------------------------
+# Session state init
+# -----------------------------
 def initialize_caregiver_session_state():
     if 'processed_eeg_data' not in st.session_state:
         st.session_state.processed_eeg_data = None
@@ -135,13 +165,25 @@ def initialize_caregiver_session_state():
     if 'patient_id' not in st.session_state:
         st.session_state.patient_id = ""
 
+# Firestore is the only persistence layer for recommendations
+
+
 def run_predictions_on_uploaded_data():
+    """Run model predictions on st.session_state.processed_eeg_data if possible.
+
+    Adds columns to the dataframe:
+    - predicted_class (from model.predict)
+    - predicted_proba_max (if predict_proba available)
+    - predicted_proba_top_index (index of class with max proba)
+    """
     results = st.session_state.get('ml_model_results')
     df = st.session_state.get('processed_eeg_data')
     if not results or not results.get('model') or df is None or df.empty:
         st.warning("Model or data not available.")
         return
-       
+
+    # Build features directly from uploaded CSV: include ALL numeric columns
+    # except the label and any columns our app created (engineered/normalized/prediction/timestamps).
     created_prefixes = (
         'engagement_score', 'focus_score', 'relaxation_score',
         'predicted_',
@@ -169,7 +211,6 @@ def run_predictions_on_uploaded_data():
     X = df[used_cols].values
 
     model = results['model']
-  
     try:
         # Predict classes
         y_pred = model.predict(X)
@@ -205,7 +246,8 @@ def run_predictions_on_uploaded_data():
 
         st.session_state.processed_eeg_data = df_out
         st.success("Predictions added to the dataset.")
-
+        
+        # Quick summary
         if 'predicted_class' in df_out.columns:
             st.subheader("Prediction Summary")
             st.write(df_out['predicted_class'].value_counts().rename_axis('class').to_frame('count'))
@@ -227,7 +269,6 @@ def run_predictions_on_uploaded_data():
                 } for cat, val in agg.items()]
             elif 'predicted_label' in df_out.columns:
                 vc = df_out['predicted_label'].value_counts(normalize=True)
-
                 ranked = [{
                     'category': str(cat),
                     'score': float(score)
@@ -242,6 +283,8 @@ def run_predictions_on_uploaded_data():
                 avg_foc = float((10 - df_out['focus_score_normalized']).mean()) if 'focus_score_normalized' in df_out.columns else None
                 avg_rel = float(df_out['relaxation_score_normalized'].mean()) if 'relaxation_score_normalized' in df_out.columns else None
 
+                # Persist directly to Firestore only
+                # Persist to Firestore via DDB (errors will surface)
                 ddb = DDB()
                 ok = ddb.put_recommendations(
                     patient_id,
@@ -256,12 +299,15 @@ def run_predictions_on_uploaded_data():
                     st.success(f"Saved caregiver playlist recommendations for '{patient_id}'.")
                 else:
                     st.error("Failed to save recommendations.")
-
         else:
             st.info("Enter a Patient ID (email) in EEG Upload to save playlist recommendations.")
     except Exception as e:
         st.error(f"Error running predictions: {e}")
 
+
+# -----------------------------
+# Dashboards (non-patient)
+# -----------------------------
 def ml_model_dashboard():
     st.subheader("🤖 ML Model Performance")
     results = st.session_state.ml_model_results
@@ -276,7 +322,6 @@ def ml_model_dashboard():
                 run_predictions_on_uploaded_data()
             # Show a compact prediction analytics pie (no tables)
             df = st.session_state.get('processed_eeg_data')
-
             try:
                 if df is not None and 'predicted_proba_max' in df.columns:
                     last_row = df.iloc[-1]
@@ -285,7 +330,7 @@ def ml_model_dashboard():
                     # Prefer predicted_top_label if present
                     if 'predicted_top_label' in df.columns and isinstance(last_row.get('predicted_top_label'), str):
                         label = str(last_row['predicted_top_label'])
-            else:
+                    else:
                         # Map via model.classes_ and top index if available
                         if 'predicted_proba_top_index' in df.columns:
                             try:
@@ -296,12 +341,13 @@ def ml_model_dashboard():
                                     label = class_value_to_label(cls_val)
                             except Exception:
                                 pass
-            if not label:
+                    # Final fallback using predicted_label or class index
+                    if not label:
                         if 'predicted_label' in df.columns and isinstance(last_row.get('predicted_label'), str):
                             label = str(last_row['predicted_label'])
                         else:
                             label = "Top Class"
-            
+
                     # Color by strength
                     if prob >= 0.8:
                         color = "#2ecc71"  # green
@@ -325,9 +371,9 @@ def ml_model_dashboard():
                     st.plotly_chart(pie_fig, use_container_width=True)
             except Exception:
                 pass
-            
     else:
         st.warning("No model found. Place 'best_Sub03_RF' (joblib) in project root to enable predictions.")
+
 
 def cognitive_insights_dashboard(df: pd.DataFrame):
     st.subheader("🧠 Cognitive Scores Summary")
@@ -340,7 +386,7 @@ def cognitive_insights_dashboard(df: pd.DataFrame):
     avg_eng = float(df['engagement_score_normalized'].mean()) if 'engagement_score_normalized' in df.columns else None
     avg_foc_inv = float((10 - df['focus_score_normalized']).mean()) if 'focus_score_normalized' in df.columns else None
     avg_rel = float(df['relaxation_score_normalized'].mean()) if 'relaxation_score_normalized' in df.columns else None
-            
+
     col1, col2, col3 = st.columns(3)
     with col1:
         if avg_eng is not None:
@@ -357,13 +403,13 @@ def cognitive_insights_dashboard(df: pd.DataFrame):
             )])
             pie_fig.update_layout(title=f"Engagement Achieved: {achieved:.1f}/10")
             st.plotly_chart(pie_fig, use_container_width=True)
-
     with col2:
         if avg_foc_inv is not None:
             st.metric("Avg Focus", f"{avg_foc_inv:.1f}/10")
     with col3:
         if avg_rel is not None:
             st.metric("Avg Relaxation", f"{avg_rel:.1f}/10")
+
 
 def caregiver_dashboard():
     """Main caregiver dashboard (no patient-specific analysis)."""
@@ -381,7 +427,8 @@ def caregiver_dashboard():
             ["ML Model Performance", "Cognitive Insights", "EEG Data Upload"],
         )
 
-        if page == "ML Model Performance":
+    # Main pages
+    if page == "ML Model Performance":
         ml_model_dashboard()
 
     elif page == "Cognitive Insights":
@@ -395,7 +442,7 @@ def caregiver_dashboard():
             value=st.session_state.get('patient_id', ""),
             placeholder="name@example.com",
         )
-    
+
         uploaded_file = st.file_uploader("Choose EEG CSV file", type="csv")
         if uploaded_file is not None:
             try:
@@ -411,4 +458,8 @@ def caregiver_dashboard():
             except Exception as e:
                 st.error(f"Error processing file: {e}")
 
-        
+
+
+def caregiver_dashboard_legacy():
+    """[REMOVED] Legacy patient-specific dashboard code has been removed."""
+    st.error("This function is deprecated and not available.")
