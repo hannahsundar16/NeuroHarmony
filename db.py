@@ -1,5 +1,6 @@
 import time
 from typing import Any, Dict, Optional, List
+
 import streamlit as st
 import json
 from collections.abc import Mapping
@@ -7,8 +8,28 @@ from google.cloud import firestore
 from google.api_core.exceptions import GoogleAPIError
 from google.oauth2 import service_account
 
+"""Firestore configuration using root-level gcp_service_account only.
+
+Required structure in Streamlit Secrets (Cloud UI or local .streamlit/secrets.toml):
+
+gcp_service_account = { ... full service account json ... }
+
+# Optional overrides
+[collections]
+users = "NeuroTunes_Users"
+songs = "NeuroTunes_Songs"
+recommendations = "NeuroTunes_Recommendations"
+events = "NeuroTunes_Events"
+
+# Optional
+debug = true
+GCP_PROJECT_ID = "override-project-id-if-needed"  # falls back to SA project_id
+"""
 def _get_sa_dict() -> Dict[str, Any]:
-    
+    """Return service account as dict from st.secrets['gcp_service_account'].
+
+    Accepts either a TOML inline table (already dict) or a JSON string.
+    """
     try:
         raw = st.secrets.get("gcp_service_account")
     except Exception:
@@ -28,18 +49,19 @@ def _get_sa_dict() -> Dict[str, Any]:
         keys = []
     raise RuntimeError(f"Missing or invalid gcp_service_account in Streamlit secrets. Provide as TOML inline table or JSON string. Available sections: {keys}")
 
+
 def _get_fs_config() -> Dict[str, Any]:
     cfg: Dict[str, Any] = {}
     # Required: service account
     sa = _get_sa_dict()
 
-    
+    # Project ID: from SA or optional override
     project_id = sa.get("project_id") or st.secrets.get("GCP_PROJECT_ID")
     if not project_id:
         raise RuntimeError("Could not determine project_id. Ensure gcp_service_account.project_id or GCP_PROJECT_ID is set.")
     cfg["project_id"] = str(project_id)
 
-    
+    # Collections: optional override via [collections]; else sensible defaults
     col = st.secrets.get("collections")
     defaults = {
         "users": "NeuroTunes_Users",
@@ -47,7 +69,6 @@ def _get_fs_config() -> Dict[str, Any]:
         "recommendations": "NeuroTunes_Recommendations",
         "events": "NeuroTunes_Events",
     }
-
     if isinstance(col, Mapping):
         col = dict(col)
         cfg["users_col"] = str(col.get("users", defaults["users"]))
@@ -63,11 +84,13 @@ def _get_fs_config() -> Dict[str, Any]:
     cfg["debug"] = bool(st.secrets.get("debug"))
     return cfg
 
+
 def _ts_ms() -> int:
     return int(time.time() * 1000)
 
+
 def _credentials_from_secrets(cfg: Dict[str, Any]) -> Optional[service_account.Credentials]:
-   
+    """Return Credentials from root-level gcp_service_account if present."""
     try:
         sa = _get_sa_dict()
         # Normalize private key in case it contains literal \n characters
@@ -79,7 +102,34 @@ def _credentials_from_secrets(cfg: Dict[str, Any]) -> Optional[service_account.C
     except Exception:
         return None
 
+
+def get_firestore_client() -> firestore.Client:
+    """Return a Firestore client built from st.secrets['gcp_service_account'].
+
+    This follows the requested pattern and uses our robust secrets parsing
+    that accepts either a TOML inline table or a JSON string.
+    """
+    sa = _get_sa_dict()
+    # Normalize private key newlines for PEM parsing
+    pk = sa.get("private_key")
+    if isinstance(pk, str) and "-----BEGIN" in pk and "\\n" in pk and "\n" not in pk:
+        sa = dict(sa)
+        sa["private_key"] = pk.replace("\\n", "\n")
+    credentials = service_account.Credentials.from_service_account_info(sa)
+    project_id = sa.get("project_id")
+    return firestore.Client(credentials=credentials, project=project_id)
+
+
 class DDB:
+    """Firestore-backed helper reusing the existing DDB interface.
+
+    Collections used (names from env above):
+    - Users: document id = user_email
+    - Songs: document id = song_id
+    - Recommendations: document id = user_email
+    - Events: auto-id documents with fields {user_email, ts, event_type, payload}
+    """
+
     def __init__(self, project_id: Optional[str] = None):
         # Load configuration from secrets
         cfg = _get_fs_config()
@@ -89,7 +139,7 @@ class DDB:
         if creds is not None:
             self._client = firestore.Client(project=project or getattr(creds, "project_id", None), credentials=creds)
         else:
-           
+            # Use ADC with optional project id
             self._client = firestore.Client(project=project) if project else firestore.Client()
         # Collections
         self._users = self._client.collection(cfg["users_col"]) 
@@ -141,7 +191,7 @@ class DDB:
                 st.error(f"Firestore put_recommendations failed: {e}")
             self._last_error = str(e)
             return False
-    
+
     def get_recommendations(self, email: str) -> Optional[Dict[str, Any]]:
         try:
             if not email:
@@ -154,6 +204,7 @@ class DDB:
             self._last_error = str(e)
             return None
 
+    # Events
     def log_event(self, email: str, event_type: str, payload: Optional[Dict[str, Any]] = None) -> bool:
         try:
             if not email:
@@ -171,7 +222,7 @@ class DDB:
             self._last_error = str(e)
             return False
 
-    # Songs
+    # Songs (optional placeholders)
     def put_song(self, song_id: str, data: Dict[str, Any]) -> bool:
         try:
             if not song_id:
@@ -185,7 +236,9 @@ class DDB:
             return False
 
     def list_songs(self, category: Optional[str] = None, limit: Optional[int] = None) -> List[Dict[str, Any]]:
-       
+        """Return songs from Firestore; when category is provided, filter on it.
+        Each item includes an 'id' key with the document ID.
+        """
         try:
             query = self._songs
             if category:
@@ -207,6 +260,24 @@ class DDB:
             self._last_error = str(e)
             return []
 
+    def health_check(self) -> bool:
+        """Attempt a lightweight operation to validate Firestore connectivity."""
+        try:
+            # Try a no-op read on users collection
+            _ = self._users.limit(1).stream(timeout=20.0)
+            for _doc in _:
+                break
+            return True
+        except GoogleAPIError as e:
+            if self._debug:
+                st.error(f"Firestore health_check failed: {e}")
+            self._last_error = str(e)
+            return False
+
+    # -----------------------------
+    # Catalog seeding helpers
+    # -----------------------------
+    @staticmethod
     def _default_audio_url(category: str) -> str:
         urls = {
             "Classical": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
@@ -215,11 +286,15 @@ class DDB:
             "Rap": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
             "R&B": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
         }
-        return urls.get(category, urls["Classical"])
+        return urls.get(category, urls["Classical"]) 
 
     def seed_initial_songs(self) -> int:
-        catalog = {
+        """Seed Firestore with a default catalog grouped by category.
 
+        Fields per song: category, song_id, id, name, duration, bpm, key, url.
+        Returns the number of songs successfully written.
+        """
+        catalog = {
             "Classical": [
                 {"id": 1, "name": "Bach's Prelude", "duration": 240, "bpm": 72, "key": "C Major"},
                 {"id": 2, "name": "Mozart's Sonata", "duration": 280, "bpm": 68, "key": "G Major"},
@@ -231,8 +306,7 @@ class DDB:
                 {"id": 8, "name": "Schubert's Ave Maria", "duration": 180, "bpm": 60, "key": "C Major"},
                 {"id": 9, "name": "Brahms' Lullaby", "duration": 160, "bpm": 58, "key": "G Major"}
             ],
-
-        "Rock": [
+            "Rock": [
                 {"id": 10, "name": "Thunder Strike", "duration": 210, "bpm": 140, "key": "E Minor"},
                 {"id": 11, "name": "Electric Storm", "duration": 195, "bpm": 145, "key": "A Minor"},
                 {"id": 12, "name": "Power Chord", "duration": 180, "bpm": 135, "key": "D Minor"},
@@ -243,8 +317,18 @@ class DDB:
                 {"id": 17, "name": "Bass Drop", "duration": 185, "bpm": 136, "key": "E Minor"},
                 {"id": 18, "name": "Amplified", "duration": 205, "bpm": 144, "key": "A Minor"}
             ],
-        
-        "Rap": [
+            "Pop": [
+                {"id": 19, "name": "Catchy Beat", "duration": 180, "bpm": 120, "key": "C Major"},
+                {"id": 20, "name": "Dance Floor", "duration": 200, "bpm": 125, "key": "G Major"},
+                {"id": 21, "name": "Radio Hit", "duration": 190, "bpm": 118, "key": "F Major"},
+                {"id": 22, "name": "Upbeat Melody", "duration": 175, "bpm": 122, "key": "D Major"},
+                {"id": 23, "name": "Feel Good", "duration": 185, "bpm": 115, "key": "A Major"},
+                {"id": 24, "name": "Summer Vibes", "duration": 195, "bpm": 128, "key": "E Major"},
+                {"id": 25, "name": "Chart Topper", "duration": 170, "bpm": 120, "key": "B♭ Major"},
+                {"id": 26, "name": "Mainstream", "duration": 188, "bpm": 124, "key": "C Major"},
+                {"id": 27, "name": "Pop Anthem", "duration": 205, "bpm": 116, "key": "G Major"}
+            ],
+            "Rap": [
                 {"id": 28, "name": "Street Beats", "duration": 200, "bpm": 95, "key": "E Minor"},
                 {"id": 29, "name": "Urban Flow", "duration": 180, "bpm": 88, "key": "A Minor"},
                 {"id": 30, "name": "Hip Hop Classic", "duration": 220, "bpm": 92, "key": "D Minor"},
@@ -255,8 +339,7 @@ class DDB:
                 {"id": 35, "name": "Underground", "duration": 210, "bpm": 87, "key": "E Minor"},
                 {"id": 36, "name": "Lyrical Flow", "duration": 185, "bpm": 93, "key": "A Minor"}
             ],
-
-        "R&B": [
+            "R&B": [
                 {"id": 37, "name": "Smooth Soul", "duration": 220, "bpm": 75, "key": "C Major"},
                 {"id": 38, "name": "Velvet Voice", "duration": 240, "bpm": 70, "key": "G Major"},
                 {"id": 39, "name": "Groove Master", "duration": 200, "bpm": 78, "key": "F Major"},
@@ -284,5 +367,3 @@ class DDB:
                 if self.put_song(song_id, payload):
                     written += 1
         return written
-
-
