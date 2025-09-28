@@ -280,7 +280,7 @@ class DDB:
     @staticmethod
     def _default_audio_url(category: str) -> str:
         urls = {
-            "Classical": "/workspaces/NeuroHarmony/clair-de-lune-suite-bergamasque-l-75-3rd-movement-claude-debussy-448s-11942.mp3",
+            "Classical": "https://archive.org/details/debussysoundreco00debu/01_Feux_d_artifice.mp3",
             "Rock": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
             "Pop": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
             "Rap": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
@@ -296,7 +296,7 @@ class DDB:
         """
         catalog = {
             "Classical": [
-                {"id": 1, "name": "Bach's Prelude", "duration": 240, "bpm": 72, "key": "C Major"},
+                {"id": 1, "name": "Bach's Prelude", "duration": 240, "bpm": 72, "key": "C Major", "url": "https://archive.org/details/debussysoundreco00debu/01_Feux_d_artifice.mp3"},
                 {"id": 2, "name": "Mozart's Sonata", "duration": 280, "bpm": 68, "key": "G Major"},
                 {"id": 3, "name": "Beethoven's Symphony", "duration": 320, "bpm": 76, "key": "F Major"},
                 {"id": 4, "name": "Chopin's Nocturne", "duration": 200, "bpm": 65, "key": "D Major"},
