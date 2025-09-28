@@ -44,28 +44,49 @@ def get_user_simple() -> Optional[Dict[str, Any]]:
     return None
 
 def hero():
-    left, right = st.columns([7, 5])  # Adjust ratio for text vs image
+    # --- precise layout + styling to match the mock ---
+    st.markdown(
+        """
+        <style>
+          .hero        { display:flex; gap:48px; align-items:center; margin:8px 0 18px; }
+          .hero-left   { flex: 0 1 560px; }              /* limit text width */
+          .hero-title  { margin:0; font-size:56px; font-weight:800; letter-spacing:.2px; }
+          .hero-sub    { margin:10px 0 0; font-size:18px; color:#444; line-height:1.7; }
+          .hero-right  { flex: 1; display:flex; justify-content:flex-end; }
+          .hero-img    { width:100%; max-width:640px; border-radius:16px;
+                         box-shadow: 0 8px 24px rgba(0,0,0,.08); }
 
-    with left:
-        st.markdown(
-            """
-            <h1 style="margin: 0 0 10px 0; font-size: 42px;">NeuroHarmony</h1>
-            <p style="font-size: 16px; color:#444; line-height:1.6; margin:0;">
-              EEG-guided music therapy: upload EEG sessions, predict genre affinity, and generate
-              engagement & focus scores to personalize listening plans.
+          /* responsive: stack on narrow screens */
+          @media (max-width: 1000px) {
+            .hero       { flex-direction:column; gap:20px; }
+            .hero-right { justify-content:center; }
+            .hero-title { font-size:40px; }
+          }
+        </style>
+
+        <div class="hero">
+          <div class="hero-left">
+            <h1 class="hero-title">NeuroHarmony</h1>
+            <p class="hero-sub">
+              EEG-guided music therapy: upload EEG sessions, predict genre affinity,
+              and generate engagement &amp; focus scores to personalize listening plans.
             </p>
-            """,
-            unsafe_allow_html=True
-        )
+          </div>
 
-    with right:
-        st.image(
-            IMAGE_ADDRESS,
-            caption="EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)",
-            use_container_width=True
-        )
+          <div class="hero-right">
+            <img class="hero-img" src='""" + IMAGE_ADDRESS + """' alt="EEG Frequency Bands" />
+          </div>
+        </div>
 
-    st.markdown("---")
+        <div style="text-align:center; color:#6b7280; font-size:14px; margin-top:-6px;">
+          EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)
+        </div>
+
+        <hr style="margin:22px 0 8px; border:0; border-top:1px solid #e5e7eb;" />
+        """,
+        unsafe_allow_html=True
+    )
+
 
     
 
