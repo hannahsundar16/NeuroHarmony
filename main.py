@@ -46,7 +46,7 @@ def get_user_simple() -> Optional[Dict[str, Any]]:
 def main():
     
     # Title and image
-    st.title("NeuroTunes")
+    st.title("NeuroHarmony")
     st.image(IMAGE_ADDRESS, caption="EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)")
     st.markdown("---")
 
