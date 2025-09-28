@@ -280,7 +280,7 @@ class DDB:
     @staticmethod
     def _default_audio_url(category: str) -> str:
         urls = {
-            "Classical": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+            "Classical": "https://archive.org/details/classical-music-mix-by-various-artists/12+-+Mozart+-+Rondo+a+la+Turc%2C+K331%2C+No.+3.mp3",
             "Rock": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
             "Pop": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
             "Rap": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
