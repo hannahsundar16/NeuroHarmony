@@ -43,13 +43,35 @@ def get_user_simple() -> Optional[Dict[str, Any]]:
     
     return None
 
+def hero():
+    """
+    Pretty hero section with title + image.
+    """
+    st.markdown(
+        """
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:22px; margin-top:6px;">
+          <div style="flex:1;">
+            <h1 style="margin: 0 0 10px 0; font-size: 42px;">NeuroTunes</h1>
+            <p style="font-size: 16px; color:#444; line-height:1.6; margin:0;">
+              EEG-guided music therapy: upload EEG sessions, predict genre affinity, and generate
+              engagement & focus scores to personalize listening plans.
+            </p>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.image(IMAGE_ADDRESS, caption="EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)")
+    st.markdown("---")
+    
+
 def main():
     
     # Title and image
-    st.title("NeuroHarmony")
-    st.image(IMAGE_ADDRESS, caption="EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)")
-    st.markdown("---")
-
+  #  st.title("NeuroHarmony")
+   # st.image(IMAGE_ADDRESS, caption="EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)")
+  #  st.markdown("---")
+ hero()
     # Authenticate
     user = get_user_simple()
     if not user:
