@@ -44,23 +44,29 @@ def get_user_simple() -> Optional[Dict[str, Any]]:
     return None
 
 def hero():
-   
-    st.markdown(
-        """
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:22px; margin-top:6px;">
-          <div style="flex:1;">
-            <h1 style="margin: 0 0 10px 0; font-size: 42px;">NeuroTunes</h1>
+    left, right = st.columns([7, 5])  # Adjust ratio for text vs image
+
+    with left:
+        st.markdown(
+            """
+            <h1 style="margin: 0 0 10px 0; font-size: 42px;">NeuroHarmony</h1>
             <p style="font-size: 16px; color:#444; line-height:1.6; margin:0;">
               EEG-guided music therapy: upload EEG sessions, predict genre affinity, and generate
               engagement & focus scores to personalize listening plans.
             </p>
-          </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-    st.image(IMAGE_ADDRESS, caption="EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)")
+            """,
+            unsafe_allow_html=True
+        )
+
+    with right:
+        st.image(
+            IMAGE_ADDRESS,
+            caption="EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)",
+            use_container_width=True
+        )
+
     st.markdown("---")
+
     
 
 def main():    
