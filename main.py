@@ -64,7 +64,7 @@ def hero():
     
 
 def main():    
- 
+
     hero()
     # Authenticate
     user = get_user_simple()
