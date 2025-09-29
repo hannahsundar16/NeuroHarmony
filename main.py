@@ -193,7 +193,7 @@ def hero(img_path_or_url: str):
 def main():
     # --- HERO at the top ---
     app_dir = Path(__file__).parent
-    HERO_IMAGE = str(app_dir / "neuroharmony.png")  # or a URL
+    HERO_IMAGE = str("neuroharmony.png")  # or a URL
     hero(HERO_IMAGE)
     st.markdown("---")
 
