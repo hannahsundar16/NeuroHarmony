@@ -24,15 +24,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-col1, col2 = st.columns([1,4])
-with col1:
-    st.image("neuroharmony.png", width=300)
-with col2:
-    st.markdown(
-        "<h1 style='margin-top: 20px;'>NeuroHarmony</h1>"
-        "<p style='font-size:16px; color:#444;'>EEG-guided music therapy: upload EEG sessions, predict genre affinity, and generate personalized engagement insights.</p>",
-        unsafe_allow_html=True
-    )
 
 IMAGE_ADDRESS = "https://www.denvercenter.org/wp-content/uploads/2024/10/music-therapy.jpg"
 
@@ -117,7 +108,7 @@ def main():
     # Title and image
     st.title("NeuroHarmony")
    # st.image(IMAGE_ADDRESS, caption="EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)")
-    #st.image("neuroharmony.png", caption="EEG Frequency Bands", width=500)
+    st.image("neuroharmony.png", caption="EEG Frequency Bands", width=500)
     st.markdown("---")
     # Authenticate
     user = get_user_simple()
