@@ -107,7 +107,7 @@ def main():
     # Title and image
     st.title("NeuroHarmony")
    # st.image(IMAGE_ADDRESS, caption="EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)")
-    st.image("neuroharmony.png", caption="EEG Frequency Bands", width=300)
+    st.image("neuroharmony.png", caption="EEG Frequency Bands", width=500)
     st.markdown("---")
     # Authenticate
     user = get_user_simple()
