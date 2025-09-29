@@ -245,12 +245,12 @@ def run_predictions_on_uploaded_data():
                 pass
 
         st.session_state.processed_eeg_data = df_out
-        st.success("Predictions added to the dataset.")
+      #  st.success("Predictions added to the dataset.")
         
         # Quick summary
         if 'predicted_class' in df_out.columns:
             st.subheader("Prediction Summary")
-            st.write(df_out['predicted_class'].value_counts().rename_axis('class').to_frame('count'))
+            #st.write(df_out['predicted_class'].value_counts().rename_axis('class').to_frame('count'))
 
         # Save top category recommendations for the specified patient
         patient_id = (st.session_state.get('patient_id') or "").strip()
@@ -296,7 +296,7 @@ def run_predictions_on_uploaded_data():
                     }
                 )
                 if ok:
-                    st.success(f"Saved caregiver playlist recommendations for '{patient_id}'.")
+                    st.success(f"Recommendations for '{patient_id}' is now avaiable.")
                 else:
                     st.error("Failed to save recommendations.")
         else:
@@ -314,7 +314,7 @@ def ml_model_dashboard():
 
     if results and results.get('loaded_from_file'):
         st.success("✅ Using Pre-trained Model: best_Sub03_RF")
-        st.info("Upload EEG data to run per-row predictions and review cognitive scores.")
+        #st.info("Upload EEG data to run per-row predictions and review cognitive scores.")
         # Allow running predictions if data exists
         df = st.session_state.get('processed_eeg_data')
         if df is not None and not df.empty:
