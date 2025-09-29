@@ -25,6 +25,65 @@ st.markdown(
 )
 
 
+
+st.set_page_config(layout="wide")  # make header span full width
+
+custom_style = """
+    <style>
+        /* Style the header bar */
+        header {
+            background-color: #E6E6FA; /* Light Lilac */
+            display: flex;
+            align-items: center;
+            justify-content: center; /* center contents */
+            height: 80px; /* adjust height */
+            box-shadow: none; /* remove bottom shadow */
+        }
+
+        /* Remove Streamlit default title */
+        header .st-emotion-cache-12fmjuu { 
+            display: none; 
+        }
+
+        /* Optional: remove default hamburger menu */
+        [data-testid="stToolbar"] {
+            display: none;
+        }
+    </style>
+"""
+st.markdown(custom_style, unsafe_allow_html=True)
+
+# Insert logo into header
+st.markdown(
+    """
+    <style>
+        .custom-header {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #E6E6FA;
+            height: 80px;
+            z-index: 999;
+        }
+        .custom-header img {
+            height: 60px;
+        }
+    </style>
+    <div class="custom-header">
+        <img src="neuroharmony.png" alt="NeuroHarmony Logo">
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+st.write("## Page Content Starts Here")
+
+
+
+
 IMAGE_ADDRESS = "https://www.denvercenter.org/wp-content/uploads/2024/10/music-therapy.jpg"
 
 CAREGIVER_EMAILS = [
@@ -108,7 +167,7 @@ def main():
     # Title and image
    # st.title("NeuroHarmony")
    # st.image(IMAGE_ADDRESS, caption="EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)")
-    st.image("neuroharmony.png", caption="EEG Frequency Bands", width=500)
+   # st.image("neuroharmony.png", caption="EEG Frequency Bands", width=500)
     st.markdown("---")
     # Authenticate
     user = get_user_simple()
