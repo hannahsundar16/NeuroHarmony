@@ -27,7 +27,7 @@ st.markdown(
 
 
 
-IMAGE_ADDRESS = "https://www.denvercenter.org/wp-content/uploads/2024/10/music-therapy.jpg"
+#IMAGE_ADDRESS = "https://www.denvercenter.org/wp-content/uploads/2024/10/music-therapy.jpg"
 
 CAREGIVER_EMAILS = [
     "hannahsundar2009@gmail.com"
@@ -58,52 +58,7 @@ def get_user_simple() -> Optional[Dict[str, Any]]:
     
     return None
 
-def hero():
-    # --- precise layout + styling to match the mock ---
-    st.markdown(
-        """
-        <style>
-          .hero        { display:flex; gap:48px; align-items:center; margin:8px 0 18px; }
-          .hero-left   { flex: 0 1 560px; }              /* limit text width */
-          .hero-title  { margin:0; font-size:56px; font-weight:800; letter-spacing:.2px; }
-          .hero-sub    { margin:10px 0 0; font-size:18px; color:#444; line-height:1.7; }
-          .hero-right  { flex: 1; display:flex; justify-content:flex-end; }
-          .hero-img    { width:100%; max-width:640px; border-radius:16px;
-                         box-shadow: 0 8px 24px rgba(0,0,0,.08); }
 
-          /* responsive: stack on narrow screens */
-          @media (max-width: 1000px) {
-            .hero       { flex-direction:column; gap:20px; }
-            .hero-right { justify-content:center; }
-            .hero-title { font-size:40px; }
-          }
-        </style>
-
-        <div class="hero">
-          <div class="hero-left">
-            <h1 class="hero-title">NeuroHarmony</h1>
-            <p class="hero-sub">
-              EEG-guided music therapy: upload EEG sessions, predict genre affinity,
-              and generate engagement &amp; focus scores to personalize listening plans.
-            </p>
-          </div>
-
-          <div class="hero-right">
-            <img class="hero-img" src='""" + IMAGE_ADDRESS + """' alt="EEG Frequency Bands" />
-          </div>
-        </div>
-
-        <div style="text-align:center; color:#6b7280; font-size:14px; margin-top:-6px;">
-          EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)
-        </div>
-
-        <hr style="margin:22px 0 8px; border:0; border-top:1px solid #e5e7eb;" />
-        """,
-        unsafe_allow_html=True
-    )
-
-
-    
 
 def main():    
 
