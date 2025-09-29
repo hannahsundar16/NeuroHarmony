@@ -5,11 +5,23 @@ from caregiver import caregiver_dashboard as ml_caregiver_dashboard
 import os
 from db import DDB
 
+
 st.set_page_config(
     page_title="NeuroHarmony",
     page_icon="🎵",
     layout="wide",
     initial_sidebar_state="expanded"
+)
+
+st.markdown(
+    """
+    <style>
+        .stApp {
+            background-color: #E6E6FA; /* Light Lilac (Lavender) */
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
 )
 
 IMAGE_ADDRESS = "https://www.denvercenter.org/wp-content/uploads/2024/10/music-therapy.jpg"
