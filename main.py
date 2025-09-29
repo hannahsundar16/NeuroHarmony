@@ -20,7 +20,7 @@ st.set_page_config(
 )
 
 # -----------------------------
-# Global styles (lilac theme + header recolor + spacing fixes)
+# Global styles (lilac theme + header recolor + spacing fixes + hero card)
 # -----------------------------
 st.markdown(
     """
@@ -42,6 +42,25 @@ st.markdown(
 
       /* Reduce top padding so content sits closer to header */
       main .block-container { padding-top: 0.6rem; }
+
+      /* Hero card styles */
+      .hero {
+        background:#EFEFFE;
+        border:1px solid rgba(0,0,0,0.06);
+        border-radius:18px;
+        padding:28px 28px 18px;
+      }
+      .hero h1 {
+        margin:0 0 10px 0;
+        font-size:48px;
+        line-height:1.1;
+      }
+      .hero p {
+        margin:0 0 16px 0;
+        font-size:18px;
+        color:#333;
+        line-height:1.6;
+      }
     </style>
     """,
     unsafe_allow_html=True
@@ -86,18 +105,61 @@ def get_user_simple() -> Optional[Dict[str, Any]]:
     # If experimental auth isn't available, treat as not logged in
     return None
 
+
+# -----------------------------
+# Hero section
+# -----------------------------
+def hero(img_path_or_url: str, title: str = "NeuroHarmony", subtext: str = None, swap: bool = False):
+    """
+    Render a hero section with text on one side and an image on the other.
+    - img_path_or_url: local path (e.g., Path(__file__).parent/'neuroharmony.png') or URL
+    - title: big headline text
+    - subtext: supporting paragraph
+    - swap=True puts the image on the left and text on the right
+    """
+    if subtext is None:
+        subtext = (
+            "EEG-guided music therapy: upload EEG sessions, predict genre affinity, "
+            "and generate engagement & focus scores to personalize listening plans."
+        )
+
+    # Layout: text (7) | image (5)  (flip if swap=True)
+    if not swap:
+        col_text, col_img = st.columns([7, 5])
+    else:
+        col_img, col_text = st.columns([5, 7])
+
+    with col_text:
+        st.markdown(
+            f"""
+            <div class="hero">
+              <h1>{title}</h1>
+              <p>{subtext}</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    with col_img:
+        st.image(img_path_or_url, use_column_width=True, caption="EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)")
+
+
 # -----------------------------
 # Main
 # -----------------------------
 def main():
-    # --- Centered logo at the top ---
+    # --- Hero at the top (text on left, image on right) ---
     app_dir = Path(__file__).parent
-    logo_path = app_dir / "neuroharmony.png"  # ensure the file is next to main.py
-
-    c1, c2, c3 = st.columns([1, 2, 1])
-    with c2:
-        # Adjust width as you prefer (e.g., 220–360)
-        st.image(str(logo_path), caption="EEG Frequency Bands", width=320)
+    HERO_IMAGE = str(app_dir / "neuroharmony.png")  # ensure the file is next to main.py
+    hero(
+        img_path_or_url=HERO_IMAGE,
+        title="NeuroHarmony",
+        subtext=(
+            "EEG-guided music therapy: upload EEG sessions, predict genre affinity, "
+            "and generate engagement & focus scores to personalize listening plans."
+        ),
+        swap=False  # set True if you want image left, text right
+    )
     st.markdown("---")
 
     # --- Authenticate ---
