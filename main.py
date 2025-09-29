@@ -97,7 +97,7 @@ def main():
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
         # Adjust width as you prefer (e.g., 220–360)
-        st.image(str(logo_path), caption="EEG Frequency Bands", width=320)
+        st.image(str(logo_path), caption="EEG Frequency Bands", width=500)
     st.markdown("---")
 
     # --- Authenticate ---
