@@ -104,7 +104,10 @@ def hero():
 
 def main():    
 
-    hero()
+    # Title and image
+    st.title("NeuroHarmony")
+    st.image(IMAGE_ADDRESS, caption="EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)")
+    st.markdown("---")
     # Authenticate
     user = get_user_simple()
     if not user:
