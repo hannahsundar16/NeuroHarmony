@@ -296,7 +296,7 @@ class DDB:
         """
         catalog = {
             "Classical": [
-                {"id": 1, "name": "Bach's Prelude", "duration": 240, "bpm": 72, "key": "C Major", "url": "https://archive.org/details/debussysoundreco00debu/01_Feux_d_artifice.mp3"},
+                {"id": 1, "name": "Bach's Prelude", "duration": 240, "bpm": 72, "key": "C Major"},
                 {"id": 2, "name": "Mozart's Sonata", "duration": 280, "bpm": 68, "key": "G Major"},
                 {"id": 3, "name": "Beethoven's Symphony", "duration": 320, "bpm": 76, "key": "F Major"},
                 {"id": 4, "name": "Chopin's Nocturne", "duration": 200, "bpm": 65, "key": "D Major"},
