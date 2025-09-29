@@ -20,7 +20,7 @@ st.set_page_config(
 )
 
 # -----------------------------
-# Global styles (theme + header + hero polish)
+# Global styles (theme + header + layout polish)
 # -----------------------------
 st.markdown(
     """
@@ -36,42 +36,77 @@ st.markdown(
       }
       [data-testid="stDecoration"] { background: transparent !important; }
 
-      /* Bring content closer to header */
-      main .block-container { padding-top: 0.6rem; }
+      /* Constrain content width for nicer readability on big screens */
+      main .block-container { 
+        padding-top: 0.8rem; 
+        max-width: 1200px;         /* <<< tweak page width here */
+      }
+
+      /* Sidebar subtle tint */
+      [data-testid="stSidebar"] {
+        background: #f4f2ff;
+      }
 
       /* --- HERO STYLES --- */
-      .hero-wrap {
-        margin: 8px 0 24px 0;
+      .nh-hero-row {
+        display: flex; 
+        gap: 28px;
+        align-items: center;       /* vertical center title + image */
       }
-      .hero-card {
-        background: #F2F0FF;           /* very light lilac for contrast */
-        border: 1px solid rgba(0,0,0,0.06);
-        border-radius: 18px;
-        padding: 28px 28px 22px;
-      }
-      .hero-title {
-        margin: 0 0 10px 0;
-        font-size: 48px;
-        line-height: 1.1;
-      }
-      .hero-sub {
-        margin: 0;
-        font-size: 18px;
-        color: #333;
-        line-height: 1.6;
-      }
-      /* Limit hero image and add soft style */
-      .hero-img img {
-        max-width: 520px;
-        width: 100%;
-        border-radius: 16px;
-        box-shadow: 0 6px 18px rgba(0,0,0,0.10);
+      @media (max-width: 1000px){
+        .nh-hero-row { flex-direction: column; }
       }
 
-      /* Mobile stacking tweaks */
-      @media (max-width: 1000px) {
-        .hero-title { font-size: 36px; }
-        .hero-sub   { font-size: 16px; }
+      .nh-hero-left {
+        flex: 0 1 58%;
+      }
+      .nh-hero-right {
+        flex: 0 1 42%;
+        display: flex;
+        justify-content: center;
+      }
+
+      .nh-card {
+        background: #F2F0FF;       /* very light lilac */
+        border: 1px solid rgba(0,0,0,0.06);
+        border-radius: 18px;
+        padding: 26px 26px 20px;
+      }
+
+      .nh-title {
+        margin: 0 0 12px 0;
+        font-size: 56px;
+        line-height: 1.06;
+        letter-spacing: -0.5px;
+      }
+      .nh-sub {
+        margin: 0;
+        font-size: 20px;
+        color: #2f2f2f;
+        line-height: 1.65;
+        max-width: 720px;          /* keep lines readable */
+      }
+
+      .nh-img {
+        width: 100%;
+        max-width: 560px;
+        border-radius: 16px;
+        box-shadow: 0 8px 22px rgba(0,0,0,0.12);
+      }
+      .nh-caption {
+        text-align: center;
+        font-size: 14px;
+        color: #666;
+        margin-top: 8px;
+      }
+
+      /* Buttons row (optional) */
+      .nh-cta { margin-top: 14px; }
+      .nh-cta > div { display: inline-block; margin-right: 10px; }
+
+      @media (max-width: 1000px){
+        .nh-title { font-size: 40px; }
+        .nh-sub   { font-size: 18px; }
       }
     </style>
     """,
@@ -114,36 +149,42 @@ def get_user_simple() -> Optional[Dict[str, Any]]:
         )
         return {"name": name, "email": email}
 
-    # If experimental auth isn't available, treat as not logged in
     return None
 
 
 # -----------------------------
-# HERO (text left, image right)
+# HERO (custom flex layout: text left, image right)
 # -----------------------------
 def hero(img_path_or_url: str):
-    st.markdown('<div class="hero-wrap"></div>', unsafe_allow_html=True)
-    left, right = st.columns([7, 5], gap="large")
-
-    with left:
-        st.markdown(
-            """
-            <div class="hero-card">
-              <h1 class="hero-title">NeuroHarmony</h1>
-              <p class="hero-sub">
+    # Build hero with pure HTML/CSS for perfect alignment/centering
+    st.markdown(
+        f"""
+        <div class="nh-hero-row">
+          <div class="nh-hero-left">
+            <div class="nh-card">
+              <h1 class="nh-title">NeuroHarmony</h1>
+              <p class="nh-sub">
                 EEG-guided music therapy: upload EEG sessions, predict genre affinity,
                 and generate engagement &amp; focus scores to personalize listening plans.
               </p>
+              <!-- Optional CTAs:
+              <div class="nh-cta">
+                <div><a href="#upload" class="stButton"><button>Upload EEG CSV</button></a></div>
+                <div><a href="#analytics" class="stButton"><button>View Analytics</button></a></div>
+              </div>
+              -->
             </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with right:
-        # use_container_width avoids the deprecation warning
-        st.markdown('<div class="hero-img">', unsafe_allow_html=True)
-        st.image(img_path_or_url, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+          </div>
+          <div class="nh-hero-right">
+            <div>
+              <img class="nh-img" src="{img_path_or_url}" alt="NeuroHarmony Illustration"/>
+              <div class="nh-caption">EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)</div>
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 
 # -----------------------------
@@ -152,7 +193,7 @@ def hero(img_path_or_url: str):
 def main():
     # --- HERO at the top ---
     app_dir = Path(__file__).parent
-    HERO_IMAGE = str(app_dir / "neuroharmony.png")  # ensure the file exists next to main.py
+    HERO_IMAGE = str(app_dir / "neuroharmony.png")  # or a URL
     hero(HERO_IMAGE)
     st.markdown("---")
 
