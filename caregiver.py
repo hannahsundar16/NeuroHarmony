@@ -417,7 +417,8 @@ def caregiver_dashboard():
 
     user_info = st.session_state.get('user_info', {'name': 'Caregiver'})
     st.title("👩‍⚕️ Caregiver ML Analytics Dashboard")
-    st.markdown(f"Welcome, **{user_info.get('name', 'Caregiver')}**. Upload EEG CSV and review per-row insights.")
+   # st.markdown(f"Welcome, **{user_info.get('name', 'Caregiver')}**. Upload EEG CSV and review per-row insights.")
+    st.markdown("Upload EEG CSV and review per-row insights.")
 
     # Sidebar navigation
     with st.sidebar:
