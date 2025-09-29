@@ -40,6 +40,16 @@ st.markdown(
       /* Optional: also make the toolbar transparent */
       [data-testid="stToolbar"] { background: transparent !important; }
 
+      /* Sidebar background to lilac */
+      [data-testid="stSidebar"] {
+        background-color: #E6E6FA !important;
+      }
+
+      /* Optional: style sidebar text/icons darker for contrast */
+      [data-testid="stSidebar"] * {
+        color: #222 !important;
+      }
+
       /* Reduce top padding so content sits closer to header */
       main .block-container { padding-top: 0.6rem; }
     </style>
