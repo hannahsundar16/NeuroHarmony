@@ -177,7 +177,7 @@ def hero(img_path_or_url: str):
           </div>
           <div class="nh-hero-right">
             <div>
-              <img class="nh-img" src="{img_path_or_url}" alt="NeuroHarmony Illustration"/>
+              <img class="nh-img" src="neuroharmony.png" alt="NeuroHarmony Illustration"/>
               <div class="nh-caption">EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)</div>
             </div>
           </div>
