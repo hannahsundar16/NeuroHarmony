@@ -20,7 +20,7 @@ st.set_page_config(
 )
 
 # -----------------------------
-# Global styles (theme + header + layout polish)
+# Global styles (lilac theme + header recolor + spacing fixes + hero card)
 # -----------------------------
 st.markdown(
     """
@@ -28,85 +28,38 @@ st.markdown(
       /* App background */
       .stApp { background-color: #E6E6FA; }
 
-      /* Header to lilac, remove shadow/gap */
-      [data-testid="stHeader"],
-      [data-testid="stToolbar"] {
+      /* Recolor Streamlit header (remove white strip and shadow) */
+      [data-testid="stHeader"] {
         background-color: #E6E6FA !important;
         box-shadow: none !important;
       }
+
+      /* Some builds show a thin white decoration under header */
       [data-testid="stDecoration"] { background: transparent !important; }
 
-      /* Constrain content width for nicer readability on big screens */
-      main .block-container { 
-        padding-top: 0.8rem; 
-        max-width: 1200px;         /* <<< tweak page width here */
-      }
+      /* Optional: also make the toolbar transparent */
+      [data-testid="stToolbar"] { background: transparent !important; }
 
-      /* Sidebar subtle tint */
-      [data-testid="stSidebar"] {
-        background: #f4f2ff;
-      }
+      /* Reduce top padding so content sits closer to header */
+      main .block-container { padding-top: 0.6rem; }
 
-      /* --- HERO STYLES --- */
-      .nh-hero-row {
-        display: flex; 
-        gap: 28px;
-        align-items: center;       /* vertical center title + image */
+      /* Hero card styles */
+      .hero {
+        background:#EFEFFE;
+        border:1px solid rgba(0,0,0,0.06);
+        border-radius:18px;
+        padding:28px 28px 18px;
       }
-      @media (max-width: 1000px){
-        .nh-hero-row { flex-direction: column; }
+      .hero h1 {
+        margin:0 0 10px 0;
+        font-size:48px;
+        line-height:1.1;
       }
-
-      .nh-hero-left {
-        flex: 0 1 58%;
-      }
-      .nh-hero-right {
-        flex: 0 1 42%;
-        display: flex;
-        justify-content: center;
-      }
-
-      .nh-card {
-        background: #F2F0FF;       /* very light lilac */
-        border: 1px solid rgba(0,0,0,0.06);
-        border-radius: 18px;
-        padding: 26px 26px 20px;
-      }
-
-      .nh-title {
-        margin: 0 0 12px 0;
-        font-size: 56px;
-        line-height: 1.06;
-        letter-spacing: -0.5px;
-      }
-      .nh-sub {
-        margin: 0;
-        font-size: 20px;
-        color: #2f2f2f;
-        line-height: 1.65;
-        max-width: 720px;          /* keep lines readable */
-      }
-
-      .nh-img {
-        width: 100%;
-        max-width: 560px;
-        border-radius: 16px;
-        box-shadow: 0 8px 22px rgba(0,0,0,0.12);
-      }
-      .nh-caption {
-        text-align: center;
-        font-size: 14px;
-        color: #666;
-        margin-top: 8px;
-      }
-
-      /* Buttons row (optional) */
-      .nh-cta { margin-top: 14px; }
-      .nh-cta > div { display: inline-block; margin-right: 10px; }
-
-      @media (max-width: 1000px){
-        .nh-title { font-size: 40px; }
-        .nh-sub   { font-size: 18px; }
+      .hero p {
+        margin:0 0 16px 0;
+        font-size:18px;
+        color:#333;
+        line-height:1.6;
       }
     </style>
     """,
@@ -149,52 +102,64 @@ def get_user_simple() -> Optional[Dict[str, Any]]:
         )
         return {"name": name, "email": email}
 
+    # If experimental auth isn't available, treat as not logged in
     return None
 
 
 # -----------------------------
-# HERO (custom flex layout: text left, image right)
+# Hero section
 # -----------------------------
-def hero(img_path_or_url: str):
-    # Build hero with pure HTML/CSS for perfect alignment/centering
-    st.markdown(
-        f"""
-        <div class="nh-hero-row">
-          <div class="nh-hero-left">
-            <div class="nh-card">
-              <h1 class="nh-title">NeuroHarmony</h1>
-              <p class="nh-sub">
-                EEG-guided music therapy: upload EEG sessions, predict genre affinity,
-                and generate engagement &amp; focus scores to personalize listening plans.
-              </p>
-              <!-- Optional CTAs:
-              <div class="nh-cta">
-                <div><a href="#upload" class="stButton"><button>Upload EEG CSV</button></a></div>
-                <div><a href="#analytics" class="stButton"><button>View Analytics</button></a></div>
-              </div>
-              -->
+def hero(img_path_or_url: str, title: str = "NeuroHarmony", subtext: str = None, swap: bool = False):
+    """
+    Render a hero section with text on one side and an image on the other.
+    - img_path_or_url: local path (e.g., Path(__file__).parent/'neuroharmony.png') or URL
+    - title: big headline text
+    - subtext: supporting paragraph
+    - swap=True puts the image on the left and text on the right
+    """
+    if subtext is None:
+        subtext = (
+            "EEG-guided music therapy: upload EEG sessions, predict genre affinity, "
+            "and generate engagement & focus scores to personalize listening plans."
+        )
+
+    # Layout: text (7) | image (5)  (flip if swap=True)
+    if not swap:
+        col_text, col_img = st.columns([7, 5])
+    else:
+        col_img, col_text = st.columns([5, 7])
+
+    with col_text:
+        st.markdown(
+            f"""
+            <div class="hero">
+              <h1>{title}</h1>
+              <p>{subtext}</p>
             </div>
-          </div>
-          <div class="nh-hero-right">
-            <div>
-              <img class="nh-img" src="{img_path_or_url}" alt="NeuroHarmony Illustration"/>
-              <div class="nh-caption">EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)</div>
-            </div>
-          </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+            """,
+            unsafe_allow_html=True
+        )
+
+    with col_img:
+        st.image(img_path_or_url, use_column_width=True, caption="EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)")
 
 
 # -----------------------------
 # Main
 # -----------------------------
 def main():
-    # --- HERO at the top ---
+    # --- Hero at the top (text on left, image on right) ---
     app_dir = Path(__file__).parent
-    HERO_IMAGE = str(app_dir / "neuroharmony.png")  # or a URL
-    hero(HERO_IMAGE)
+    HERO_IMAGE = str(app_dir / "neuroharmony.png")  # ensure the file is next to main.py
+    hero(
+        img_path_or_url=HERO_IMAGE,
+        title="NeuroHarmony",
+        subtext=(
+            "EEG-guided music therapy: upload EEG sessions, predict genre affinity, "
+            "and generate engagement & focus scores to personalize listening plans."
+        ),
+        swap=False  # set True if you want image left, text right
+    )
     st.markdown("---")
 
     # --- Authenticate ---
