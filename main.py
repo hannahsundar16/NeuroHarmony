@@ -20,7 +20,7 @@ st.set_page_config(
 )
 
 # -----------------------------
-# Global styles (lilac theme + header recolor + spacing fixes + hero card)
+# Global styles (theme + header + hero polish)
 # -----------------------------
 st.markdown(
     """
@@ -28,38 +28,50 @@ st.markdown(
       /* App background */
       .stApp { background-color: #E6E6FA; }
 
-      /* Recolor Streamlit header (remove white strip and shadow) */
-      [data-testid="stHeader"] {
+      /* Header to lilac, remove shadow/gap */
+      [data-testid="stHeader"],
+      [data-testid="stToolbar"] {
         background-color: #E6E6FA !important;
         box-shadow: none !important;
       }
-
-      /* Some builds show a thin white decoration under header */
       [data-testid="stDecoration"] { background: transparent !important; }
 
-      /* Optional: also make the toolbar transparent */
-      [data-testid="stToolbar"] { background: transparent !important; }
-
-      /* Reduce top padding so content sits closer to header */
+      /* Bring content closer to header */
       main .block-container { padding-top: 0.6rem; }
 
-      /* Hero card styles */
-      .hero {
-        background:#EFEFFE;
-        border:1px solid rgba(0,0,0,0.06);
-        border-radius:18px;
-        padding:28px 28px 18px;
+      /* --- HERO STYLES --- */
+      .hero-wrap {
+        margin: 8px 0 24px 0;
       }
-      .hero h1 {
-        margin:0 0 10px 0;
-        font-size:48px;
-        line-height:1.1;
+      .hero-card {
+        background: #F2F0FF;           /* very light lilac for contrast */
+        border: 1px solid rgba(0,0,0,0.06);
+        border-radius: 18px;
+        padding: 28px 28px 22px;
       }
-      .hero p {
-        margin:0 0 16px 0;
-        font-size:18px;
-        color:#333;
-        line-height:1.6;
+      .hero-title {
+        margin: 0 0 10px 0;
+        font-size: 48px;
+        line-height: 1.1;
+      }
+      .hero-sub {
+        margin: 0;
+        font-size: 18px;
+        color: #333;
+        line-height: 1.6;
+      }
+      /* Limit hero image and add soft style */
+      .hero-img img {
+        max-width: 520px;
+        width: 100%;
+        border-radius: 16px;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.10);
+      }
+
+      /* Mobile stacking tweaks */
+      @media (max-width: 1000px) {
+        .hero-title { font-size: 36px; }
+        .hero-sub   { font-size: 16px; }
       }
     </style>
     """,
@@ -107,59 +119,41 @@ def get_user_simple() -> Optional[Dict[str, Any]]:
 
 
 # -----------------------------
-# Hero section
+# HERO (text left, image right)
 # -----------------------------
-def hero(img_path_or_url: str, title: str = "NeuroHarmony", subtext: str = None, swap: bool = False):
-    """
-    Render a hero section with text on one side and an image on the other.
-    - img_path_or_url: local path (e.g., Path(__file__).parent/'neuroharmony.png') or URL
-    - title: big headline text
-    - subtext: supporting paragraph
-    - swap=True puts the image on the left and text on the right
-    """
-    if subtext is None:
-        subtext = (
-            "EEG-guided music therapy: upload EEG sessions, predict genre affinity, "
-            "and generate engagement & focus scores to personalize listening plans."
-        )
+def hero(img_path_or_url: str):
+    st.markdown('<div class="hero-wrap"></div>', unsafe_allow_html=True)
+    left, right = st.columns([7, 5], gap="large")
 
-    # Layout: text (7) | image (5)  (flip if swap=True)
-    if not swap:
-        col_text, col_img = st.columns([7, 5])
-    else:
-        col_img, col_text = st.columns([5, 7])
-
-    with col_text:
+    with left:
         st.markdown(
-            f"""
-            <div class="hero">
-              <h1>{title}</h1>
-              <p>{subtext}</p>
+            """
+            <div class="hero-card">
+              <h1 class="hero-title">NeuroHarmony</h1>
+              <p class="hero-sub">
+                EEG-guided music therapy: upload EEG sessions, predict genre affinity,
+                and generate engagement &amp; focus scores to personalize listening plans.
+              </p>
             </div>
             """,
             unsafe_allow_html=True
         )
 
-    with col_img:
-        st.image(img_path_or_url, use_column_width=True, caption="EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)")
+    with right:
+        # use_container_width avoids the deprecation warning
+        st.markdown('<div class="hero-img">', unsafe_allow_html=True)
+        st.image(img_path_or_url, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # -----------------------------
 # Main
 # -----------------------------
 def main():
-    # --- Hero at the top (text on left, image on right) ---
+    # --- HERO at the top ---
     app_dir = Path(__file__).parent
-    HERO_IMAGE = str(app_dir / "neuroharmony.png")  # ensure the file is next to main.py
-    hero(
-        img_path_or_url=HERO_IMAGE,
-        title="NeuroHarmony",
-        subtext=(
-            "EEG-guided music therapy: upload EEG sessions, predict genre affinity, "
-            "and generate engagement & focus scores to personalize listening plans."
-        ),
-        swap=False  # set True if you want image left, text right
-    )
+    HERO_IMAGE = str(app_dir / "neuroharmony.png")  # ensure the file exists next to main.py
+    hero(HERO_IMAGE)
     st.markdown("---")
 
     # --- Authenticate ---
