@@ -208,7 +208,7 @@ def general_user_dashboard():
     user_info = st.session_state.user_info
 
     st.title("Wellness Dashboard")
-    st.markdown(f"Welcome, **{user_info['name']}**! Discover your optimal melodies for cognitive enhancement.")
+    st.markdown(f"Discover your optimal melodies for cognitive enhancement.")
 
     if not st.session_state.session_started:
         st.session_state.login_sessions.append(datetime.now())
