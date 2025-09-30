@@ -116,7 +116,7 @@ def hero_block(user_name: str):
         st.markdown('<div class="nh-center">', unsafe_allow_html=True)
         st.image(str(logo_path), width=420)
         st.markdown(
-            f"<div class='nh-tagline'>Hello, <b>{user_name}</b> — personalized music for mind & wellness</div>",
+            f"<div class='nh-tagline'> personalized music for mind & wellness</div>",
             unsafe_allow_html=True,
         )
         st.markdown('</div>', unsafe_allow_html=True)
