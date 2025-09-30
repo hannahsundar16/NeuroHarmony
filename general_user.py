@@ -291,7 +291,7 @@ def general_user_dashboard():
                 st.markdown("---")
 
             if rec_playlist:
-             st.subheader("🩺 Recommended by Caregiver")
+                st.subheader("🩺 Recommended by Caregiver")
                 for i, track in enumerate(rec_playlist):
                     track_card(track, track['category'], key_prefix=f"rec_{i}")
                 st.markdown("---")
