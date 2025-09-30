@@ -207,7 +207,7 @@ def general_user_dashboard():
 
     user_info = st.session_state.user_info
 
-    st.title("🎵 Music Therapy Portal")
+    st.title("NeuroHarmony Hub")
     st.markdown(f"Welcome, **{user_info['name']}**! Discover your optimal melodies for cognitive enhancement.")
 
     if not st.session_state.session_started:
@@ -255,7 +255,7 @@ def general_user_dashboard():
         # Session activity summary
         sessions = len(st.session_state.get('login_sessions', []))
         if sessions:
-            st.markdown("### 👤 Session Activity")
+            st.markdown("### 👤 Your Activity")
             c1, c2 = st.columns(2)
             with c1:
                 st.metric("Login Sessions", sessions)
@@ -272,7 +272,7 @@ def general_user_dashboard():
             scores = get_caregiver_scores_for_user(user_email)
             rec_playlist = get_recommended_playlist_for_user(user_email)
             if scores:
-                st.subheader("🧠 Neural Engagement Scores")
+                st.subheader("🧠 Brainwave Insights")
             if scores:
                 c1, c2, c3 = st.columns(3)
 
@@ -291,7 +291,7 @@ def general_user_dashboard():
                 st.markdown("---")
 
             if rec_playlist:
-                st.subheader("🎧 Recommended Playlist")
+                st.subheader("🎧 Personalized Playlist")
                 for i, track in enumerate(rec_playlist):
                     track_card(track, track['category'], key_prefix=f"rec_{i}")
                 st.markdown("---")
