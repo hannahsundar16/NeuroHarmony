@@ -223,7 +223,7 @@ def general_user_dashboard():
         st.markdown("### 🎼 Navigation")
         page = st.selectbox(
             "Select Feature",
-            ["Dashboard", "Music Library", "Trend Analysis"]
+            ["🎛️ Wellness Dashboard", "🎼 Music Library", "📊 Insights"]
         )
 
         st.markdown("---")
