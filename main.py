@@ -8,6 +8,7 @@ from general_user import general_user_dashboard as music_therapy_dashboard
 from caregiver import caregiver_dashboard as ml_caregiver_dashboard
 from db import DDB
 
+
 # -----------------------------
 # Page setup
 # -----------------------------
@@ -19,7 +20,7 @@ st.set_page_config(
 )
 
 # -----------------------------
-# Global styles (lilac theme + sane layout + hero blurb)
+# Global styles (lilac theme + sane layout + compact headings)
 # -----------------------------
 st.markdown(
     """
@@ -50,35 +51,19 @@ st.markdown(
       /* Buttons */
       .stButton>button { border-radius: 10px !important; }
 
-      /* Hero blurb styles */
+      /* Product-like font stack + slightly tighter headings */
       body, .stApp, .markdown-text-container {
         font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
       }
-      .nh-hero-wrap {
-        display: flex; align-items: center; justify-content: center; gap: 44px;
-        margin: 10px 0 20px 0; flex-wrap: wrap;
-      }
-      .nh-hero-left { max-width: 620px; }
-      .nh-hero-title {
-        font-size: 44px; line-height: 1.15; font-weight: 800; margin: 0 0 12px 0;
-        letter-spacing: -0.5px; color: #212529;
-      }
-      .nh-hero-copy {
-        font-size: 18px; line-height: 1.65; color: #3f3f46; margin: 0 0 6px 0;
-      }
-      .nh-hero-caption {
-        font-size: 14px; color: #6b7280; margin-top: 8px;
-      }
-      .nh-hero-img {
-        border-radius: 14px;
-        box-shadow: 0 4px 22px rgba(26, 20, 90, 0.06);
-      }
+      h1, h2, h3 { letter-spacing: -0.2px; }
 
-      .nh-divider { margin: 16px 0 22px 0; border: none; height: 1px; background: rgba(0,0,0,0.08); }
+      /* Divider utility */
+      .nh-hr { border: none; height: 1px; background: rgba(0,0,0,.08); margin: 6px 0 14px 0; }
     </style>
     """,
     unsafe_allow_html=True,
 )
+
 
 # -----------------------------
 # Simple role config
@@ -90,8 +75,9 @@ CAREGIVER_EMAILS = [
 def is_caregiver(email: str) -> bool:
     return email.lower() in (e.lower() for e in CAREGIVER_EMAILS)
 
+
 # -----------------------------
-# Auth helper
+# Auth helper (sidebar shows ONLY login/logout)
 # -----------------------------
 def get_user_simple() -> Optional[Dict[str, Any]]:
     exp_user = getattr(st, "experimental_user", None)
@@ -111,44 +97,62 @@ def get_user_simple() -> Optional[Dict[str, Any]]:
             st.info("Sign-in not available in this environment.")
             return None
 
+    # If we get here, user is logged in
     name = getattr(exp_user, "name", None) or getattr(exp_user, "username", None) or "User"
     email = getattr(exp_user, "email", None) or ""
     return {"name": name, "email": email}
 
+
 # -----------------------------
-# Hero blurb
+# Hero blurb (left text + right image, using Streamlit columns)
 # -----------------------------
 def hero_block(user_name: str):
+    # Prefer illustration if present; then logo; else hosted fallback
     app_dir = Path(__file__).parent
-    # Swap this illustration with your own if available
-    illo_path = app_dir / "hero_illustration.png"
-    logo_path = app_dir / "neuroharmony.png"
-    img_path = str(illo_path if illo_path.exists() else logo_path)
+    illo = app_dir / "hero_illustration.png"
+    logo = app_dir / "neuroharmony.png"
+    fallback_url = "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/musicbrainz.svg"
 
-    st.markdown(
-        f"""
-        <div class="nh-hero-wrap">
-          <div class="nh-hero-left">
-            <h1 class="nh-hero-title">NeuroHarmony</h1>
-            <p class="nh-hero-copy">
-              EEG-guided music therapy: upload EEG sessions, predict genre affinity,
-              and generate engagement &amp; focus scores to personalize listening plans.
-            </p>
-            <div class="nh-hero-caption">
-              Hello, <b>{user_name}</b> — personalized music for mind &amp; wellness<br/>
-              <span style="opacity:.9;">EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)</span>
+    img_src = None
+    if illo.exists():
+        img_src = str(illo)
+    elif logo.exists():
+        img_src = str(logo)
+
+    left, right = st.columns([7, 5], gap="large")
+
+    with left:
+        st.markdown(
+            f"""
+            <div style="padding-top:6px;">
+              <h1 style="
+                  margin:0 0 8px 0;
+                  font-size:38px;
+                  line-height:1.15;
+                  letter-spacing:-0.4px;">
+                NeuroHarmony
+              </h1>
+              <p style="margin:0 0 6px 0; font-size:17px; line-height:1.6; color:#3f3f46;">
+                EEG-guided music therapy: upload EEG sessions, predict genre affinity,
+                and generate engagement &amp; focus scores to personalize listening plans.
+              </p>
+              <div style="font-size:14px; color:#6b7280; margin-top:6px;">
+                Hello, <b>{user_name}</b> — personalized music for mind &amp; wellness<br/>
+                <span style="opacity:.9;">EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)</span>
+              </div>
             </div>
-          </div>
-          <div>
-            <img src="file://{img_path}" alt="Brain & music illustration"
-                 width="360" class="nh-hero-img"/>
-          </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+            """,
+            unsafe_allow_html=True,
+        )
 
-    st.markdown('<div class="nh-divider"></div>', unsafe_allow_html=True)
+    with right:
+        if img_src:
+            st.image(img_src, use_container_width=True)
+        else:
+            st.image(fallback_url, width=240)
+
+    st.markdown("<div class='nh-hr'></div>", unsafe_allow_html=True)
+
 
 # -----------------------------
 # Main
@@ -169,9 +173,10 @@ def main():
             _ = ddb.upsert_user(email, name)
             _ = ddb.log_event(email, "login", {})
         except Exception:
+            # Don't block UI if DB is unavailable
             pass
 
-    # --- One-time seed for songs collection if empty ---
+    # --- Seed songs once if empty ---
     if not st.session_state.get("_seed_done"):
         try:
             ddb_seed = DDB()
@@ -186,11 +191,12 @@ def main():
     # --- Hero blurb ---
     hero_block(user_name=name)
 
-    # --- Route to dashboards ---
+    # --- Route to dashboards (dashboards own sidebar sections like Navigation/Quick Controls) ---
     if email and is_caregiver(email):
         ml_caregiver_dashboard()
     else:
         music_therapy_dashboard()
+
 
 if __name__ == "__main__":
     main()
