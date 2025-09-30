@@ -20,7 +20,7 @@ st.set_page_config(
 )
 
 # -----------------------------
-# Global styles (lilac theme + sane layout + compact headings)
+# Global styles (lilac theme + compact headings + hero image crop helper)
 # -----------------------------
 st.markdown(
     """
@@ -67,6 +67,23 @@ st.markdown(
         box-shadow:0 4px 12px rgba(79,70,229,.25);
       }
       .nh-cta:hover { filter: brightness(1.05); }
+
+      /* If you keep a PNG with wordmark, this crops the bottom (hiding the text) */
+      .nh-crop-box {
+        width: 100%;
+        height: 320px;             /* visible height */
+        overflow: hidden;          /* hide overflow (the wordmark) */
+        border-radius: 14px;
+        box-shadow: 0 4px 22px rgba(26, 20, 90, 0.06);
+        background: #efeafc;
+      }
+      .nh-crop-box img {
+        width: 100%;
+        height: 460px;             /* taller than box so bottom gets hidden */
+        object-fit: cover;
+        object-position: center top; /* keep the headphones/wave */
+        display: block;
+      }
     </style>
     """,
     unsafe_allow_html=True,
@@ -103,34 +120,22 @@ def get_user_simple() -> Optional[Dict[str, Any]]:
             st.info("Sign-in not available in this environment.")
             return None
 
-    # If we get here, user is logged in
     name = getattr(exp_user, "name", None) or getattr(exp_user, "username", None) or "User"
     email = getattr(exp_user, "email", None) or ""
     return {"name": name, "email": email}
 
 # -----------------------------
-# Hero blurb (left text + right illustration; MINIMAL brand mentions)
+# Hero blurb (left text + right illustration WITHOUT wordmark)
 # -----------------------------
 def hero_block(user_name: str):
     """
-    Headline is thematic (not brand). Image should be an icon/illustration
-    without the word 'NeuroHarmony' to avoid repetition.
+    Headline is thematic (not brand). Right side uses a text-free inline SVG illustration.
+    If you prefer to keep your PNG with wordmark, comment the SVG section and use the
+    'cropped image' fallback below.
     """
     app_dir = Path(__file__).parent
-    # Prefer an illustration with NO wordmark; fallbacks ensure something renders.
-    # Put a simple headphone/brain-only PNG named 'hero_icon.png' next to this file.
-    icon = app_dir / "hero_icon.png"              # <— recommended (no text)
-    illo = app_dir / "hero_illustration.png"      # alt illustration (no text)
-    logo_wordmark = app_dir / "neuroharmony.png"  # has text; only as last local resort
-    fallback_url = "https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/png/512/headphones.png"
+    logo_with_text = app_dir / "neuroharmony.png"  # used only for the crop fallback
 
-    img_src = None
-    for p in (icon, illo, logo_wordmark):
-        if p.exists():
-            img_src = str(p)
-            break
-
-    # 60 / 40 split like your reference
     left, right = st.columns([3, 2], gap="large")
 
     with left:
@@ -145,9 +150,8 @@ def hero_block(user_name: str):
                 Personalize Your Mind & Music
               </h1>
               <p style="margin:0 0 10px 0; font-size:18px; line-height:1.65; color:#3f3f46;">
-                EEG-guided music therapy that learns what works for you:
-                upload EEG sessions, predict genre affinity, and generate
-                engagement & focus scores to tailor listening plans.
+                EEG-guided music therapy that learns what works for you: upload EEG sessions,
+                predict genre affinity, and generate engagement &amp; focus scores to tailor listening plans.
               </p>
               <div style="font-size:14px; color:#6b7280; margin:8px 0 14px 0;">
                 Hello, <b>{user_name}</b> — your wellness journey starts here.
@@ -159,13 +163,39 @@ def hero_block(user_name: str):
         )
 
     with right:
-        if img_src:
-            st.image(img_src, use_container_width=True)
-        else:
-            st.image(fallback_url, width=260)
+        # ---- Preferred: INLINE SVG (no brand text) ----
+        svg = """
+        <svg width="100%" height="320" viewBox="0 0 400 320" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="g" x1="0" x2="1" y1="0" y2="0">
+              <stop offset="0" stop-color="#6D4AFF"/>
+              <stop offset="1" stop-color="#FF7AC6"/>
+            </linearGradient>
+          </defs>
+          <!-- soft card -->
+          <rect x="0" y="0" width="400" height="320" rx="14" fill="#F4EEFF"/>
+          <!-- headphones -->
+          <path d="M80 180 a120 120 0 1 1 240 0 v60 a20 20 0 0 1 -20 20 h-20 a20 20 0 0 1 -20 -20 v-60
+                   a80 80 0 1 0 -160 0 v60 a20 20 0 0 1 -20 20 h-20 a20 20 0 0 1 -20 -20 z"
+                fill="#5A4FD6"/>
+          <!-- waveform -->
+          <polyline fill="none" stroke="url(#g)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"
+            points="60,190 90,190 115,160 135,210 155,150 175,210 195,170 215,205 235,160 255,195 275,175 295,200 320,185 340,190"/>
+        </svg>
+        """
+        st.markdown(svg, unsafe_allow_html=True)
+
+        # ---- Fallback: CROP your existing PNG to hide the wordmark ----
+        # if not logo_with_text.exists():
+        #     st.markdown(svg, unsafe_allow_html=True)
+        # else:
+        #     st.markdown(f'''
+        #         <div class="nh-crop-box">
+        #             <img src="file://{str(logo_with_text)}" alt="Logo cropped"/>
+        #         </div>
+        #     ''', unsafe_allow_html=True)
 
     st.markdown("<div class='nh-hr'></div>", unsafe_allow_html=True)
-    # Anchor so the CTA can scroll here or the next section
     st.markdown('<div id="dashboard-start"></div>', unsafe_allow_html=True)
 
 # -----------------------------
@@ -187,7 +217,6 @@ def main():
             _ = ddb.upsert_user(email, name)
             _ = ddb.log_event(email, "login", {})
         except Exception:
-            # Don't block UI if DB is unavailable
             pass
 
     # --- Seed songs once if empty ---
@@ -202,7 +231,7 @@ def main():
         finally:
             st.session_state["_seed_done"] = True
 
-    # --- Hero blurb (non-branded headline) ---
+    # --- Hero blurb (non-branded art on right) ---
     hero_block(user_name=name)
 
     # --- Route to dashboards (dashboards own sidebar sections) ---
