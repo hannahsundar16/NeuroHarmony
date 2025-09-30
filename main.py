@@ -20,7 +20,7 @@ st.set_page_config(
 )
 
 # -----------------------------
-# Global styles (lilac theme + header recolor + spacing fixes)
+# Global styles (lilac theme + polish)
 # -----------------------------
 st.markdown(
     """
@@ -28,30 +28,48 @@ st.markdown(
       /* App background */
       .stApp { background-color: #E6E6FA; }
 
-      /* Recolor Streamlit header (remove white strip and shadow) */
-      [data-testid="stHeader"] {
+      /* Header: match background, remove shadow/gap */
+      [data-testid="stHeader"], [data-testid="stToolbar"] {
         background-color: #E6E6FA !important;
         box-shadow: none !important;
       }
-
-      /* Some builds show a thin white decoration under header */
       [data-testid="stDecoration"] { background: transparent !important; }
 
-      /* Optional: also make the toolbar transparent */
-      [data-testid="stToolbar"] { background: transparent !important; }
-
-      /* Sidebar background to lilac */
+      /* Sidebar: same lilac + better contrast for text/icons */
       [data-testid="stSidebar"] {
         background-color: #E6E6FA !important;
+        border-right: 0;
       }
+      [data-testid="stSidebar"] * { color: #222 !important; }
 
-      /* Optional: style sidebar text/icons darker for contrast */
-      [data-testid="stSidebar"] * {
-        color: #222 !important;
-      }
-
-      /* Reduce top padding so content sits closer to header */
+      /* Bring content closer to header */
       main .block-container { padding-top: 0.6rem; }
+
+      /* Subtle card utility class (for hero wrapper if you want) */
+      .nh-card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 6px 24px rgba(18, 16, 99, 0.06);
+        padding: 18px 20px;
+      }
+
+      /* Center utilities */
+      .nh-center { text-align: center; }
+
+      /* Tiny subtitle */
+      .nh-subtle {
+        color: #4a4a4a;
+        font-size: 15px;
+        margin-top: 8px;
+      }
+
+      /* Divider spacing tweak */
+      .nh-divider { margin: 16px 0 24px 0; border: none; height: 1px; background: rgba(0,0,0,0.08); }
+
+      /* Buttons look a bit crisper on lilac */
+      .stButton>button {
+        border-radius: 12px !important;
+      }
     </style>
     """,
     unsafe_allow_html=True
@@ -67,6 +85,7 @@ CAREGIVER_EMAILS = [
 def is_caregiver(email: str) -> bool:
     return email.lower() in [e.lower() for e in CAREGIVER_EMAILS]
 
+
 # -----------------------------
 # Auth helper
 # -----------------------------
@@ -74,42 +93,60 @@ def get_user_simple() -> Optional[Dict[str, Any]]:
     exp_user = getattr(st, "experimental_user", None)
     has_login = hasattr(st, "login") and hasattr(st, "logout")
 
-    if exp_user is not None and hasattr(exp_user, "is_logged_in") and has_login:
-        with st.sidebar:
+    with st.sidebar:
+        st.markdown("## 🎵 Navigation")
+
+        if exp_user is not None and hasattr(exp_user, "is_logged_in") and has_login:
             if not exp_user.is_logged_in:
                 if st.button("Log in with Google", type="primary"):
                     st.login()
                 return None
             else:
+                # Show a compact logout at top of sidebar
                 if st.button("Log out", type="secondary"):
                     st.logout()
                     return None
+        else:
+            # If experimental auth isn't available, treat as not logged in
+            st.info("Sign-in not available in this environment.")
+            return None
 
-        name = getattr(exp_user, "name", None) or getattr(exp_user, "username", None) or "User"
-        email = getattr(exp_user, "email", None) or ""
+        st.markdown("---")
+        st.markdown("## 🎛️ Quick Controls")
+
+    # If we get here, user is logged in
+    name = getattr(exp_user, "name", None) or getattr(exp_user, "username", None) or "User"
+    email = getattr(exp_user, "email", None) or ""
+    return {"name": name, "email": email}
+
+
+# -----------------------------
+# Hero (brand once, friendly)
+# -----------------------------
+def hero_block(user_name: str):
+    app_dir = Path(__file__).parent
+    logo_path = app_dir / "neuroharmony.png"  # ensure file exists next to this script
+
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
+        st.markdown('<div class="nh-card nh-center">', unsafe_allow_html=True)
+        # Adjust width to your liking (e.g., 220–360)
+        st.image(str(logo_path), width=420, caption=None)
         st.markdown(
-            f"Hello, <span style='color: orange; font-weight: bold;'>{name}</span>!",
+            f"""
+            <div class="nh-subtle">Hello, <b>{user_name}</b> — personalized music for mind & wellness</div>
+            """,
             unsafe_allow_html=True
         )
-        return {"name": name, "email": email}
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    # If experimental auth isn't available, treat as not logged in
-    return None
+    st.markdown('<div class="nh-divider"></div>', unsafe_allow_html=True)
+
 
 # -----------------------------
 # Main
 # -----------------------------
 def main():
-    # --- Centered logo at the top ---
-    app_dir = Path(__file__).parent
-    logo_path = app_dir / "neuroharmony.png"  # ensure the file is next to main.py
-
-    c1, c2, c3 = st.columns([1, 2, 1])
-    with c2:
-        # Adjust width as you prefer (e.g., 220–360)
-        st.image(str(logo_path), caption="EEG Frequency Bands", width=500)
-    st.markdown("---")
-
     # --- Authenticate ---
     user = get_user_simple()
     if not user:
@@ -120,9 +157,13 @@ def main():
     email = (user.get("email") or "").strip()
     name = (user.get("name") or "User").strip()
     if email:
-        ddb = DDB()
-        _ = ddb.upsert_user(email, name)
-        _ = ddb.log_event(email, "login", {})
+        try:
+            ddb = DDB()
+            _ = ddb.upsert_user(email, name)
+            _ = ddb.log_event(email, "login", {})
+        except Exception:
+            # Fail silently if DB unavailable; app should still work
+            pass
 
     # --- One-time seed for songs collection if empty ---
     if not st.session_state.get("_seed_done"):
@@ -136,12 +177,15 @@ def main():
         finally:
             st.session_state["_seed_done"] = True
 
+    # --- Brand hero once, then route ---
+    hero_block(user_name=name)
+
     # --- Route by role ---
-    user_email = (user.get("email") or "").strip()
+    user_email = email
     if user_email and is_caregiver(user_email):
-        ml_caregiver_dashboard()
+        ml_caregiver_dashboard()   # Caregiver view (no extra branding here)
     else:
-        music_therapy_dashboard()
+        music_therapy_dashboard()  # General user view (titles/sections inside module)
 
 
 if __name__ == "__main__":
