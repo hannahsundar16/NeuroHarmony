@@ -58,12 +58,19 @@ st.markdown(
       h1, h2, h3 { letter-spacing: -0.2px; }
 
       /* Divider utility */
-      .nh-hr { border: none; height: 1px; background: rgba(0,0,0,.08); margin: 6px 0 14px 0; }
+      .nh-hr { border: none; height: 1px; background: rgba(0,0,0,.08); margin: 10px 0 18px 0; }
+
+      /* CTA button look for the hero */
+      .nh-cta {
+        display:inline-block; padding:10px 16px; border-radius:12px;
+        background:#4f46e5; color:#fff; text-decoration:none;
+        box-shadow:0 4px 12px rgba(79,70,229,.25);
+      }
+      .nh-cta:hover { filter: brightness(1.05); }
     </style>
     """,
     unsafe_allow_html=True,
 )
-
 
 # -----------------------------
 # Simple role config
@@ -74,7 +81,6 @@ CAREGIVER_EMAILS = [
 
 def is_caregiver(email: str) -> bool:
     return email.lower() in (e.lower() for e in CAREGIVER_EMAILS)
-
 
 # -----------------------------
 # Auth helper (sidebar shows ONLY login/logout)
@@ -102,44 +108,51 @@ def get_user_simple() -> Optional[Dict[str, Any]]:
     email = getattr(exp_user, "email", None) or ""
     return {"name": name, "email": email}
 
-
 # -----------------------------
-# Hero blurb (left text + right image, using Streamlit columns)
+# Hero blurb (left text + right illustration; MINIMAL brand mentions)
 # -----------------------------
 def hero_block(user_name: str):
-    # Prefer illustration if present; then logo; else hosted fallback
+    """
+    Headline is thematic (not brand). Image should be an icon/illustration
+    without the word 'NeuroHarmony' to avoid repetition.
+    """
     app_dir = Path(__file__).parent
-    illo = app_dir / "hero_illustration.png"
-    logo = app_dir / "neuroharmony.png"
-    fallback_url = "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/musicbrainz.svg"
+    # Prefer an illustration with NO wordmark; fallbacks ensure something renders.
+    # Put a simple headphone/brain-only PNG named 'hero_icon.png' next to this file.
+    icon = app_dir / "hero_icon.png"              # <— recommended (no text)
+    illo = app_dir / "hero_illustration.png"      # alt illustration (no text)
+    logo_wordmark = app_dir / "neuroharmony.png"  # has text; only as last local resort
+    fallback_url = "https://raw.githubusercontent.com/encharm/Font-Awesome-SVG-PNG/master/black/png/512/headphones.png"
 
     img_src = None
-    if illo.exists():
-        img_src = str(illo)
-    elif logo.exists():
-        img_src = str(logo)
+    for p in (icon, illo, logo_wordmark):
+        if p.exists():
+            img_src = str(p)
+            break
 
-    left, right = st.columns([7, 5], gap="large")
+    # 60 / 40 split like your reference
+    left, right = st.columns([3, 2], gap="large")
 
     with left:
         st.markdown(
             f"""
-            <div style="padding-top:6px;">
+            <div style="padding-top:8px;">
               <h1 style="
-                  margin:0 0 8px 0;
-                  font-size:38px;
-                  line-height:1.15;
-                  letter-spacing:-0.4px;">
-                NeuroHarmony
+                  margin:0 0 10px 0;
+                  font-size:42px;
+                  line-height:1.12;
+                  letter-spacing:-0.6px;">
+                Personalize Your Mind & Music
               </h1>
-              <p style="margin:0 0 6px 0; font-size:17px; line-height:1.6; color:#3f3f46;">
-                EEG-guided music therapy: upload EEG sessions, predict genre affinity,
-                and generate engagement &amp; focus scores to personalize listening plans.
+              <p style="margin:0 0 10px 0; font-size:18px; line-height:1.65; color:#3f3f46;">
+                EEG-guided music therapy that learns what works for you:
+                upload EEG sessions, predict genre affinity, and generate
+                engagement & focus scores to tailor listening plans.
               </p>
-              <div style="font-size:14px; color:#6b7280; margin-top:6px;">
-                Hello, <b>{user_name}</b> — personalized music for mind &amp; wellness<br/>
-                <span style="opacity:.9;">EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)</span>
+              <div style="font-size:14px; color:#6b7280; margin:8px 0 14px 0;">
+                Hello, <b>{user_name}</b> — your wellness journey starts here.
               </div>
+              <a class="nh-cta" href="#dashboard-start">Get Started</a>
             </div>
             """,
             unsafe_allow_html=True,
@@ -149,10 +162,11 @@ def hero_block(user_name: str):
         if img_src:
             st.image(img_src, use_container_width=True)
         else:
-            st.image(fallback_url, width=240)
+            st.image(fallback_url, width=260)
 
     st.markdown("<div class='nh-hr'></div>", unsafe_allow_html=True)
-
+    # Anchor so the CTA can scroll here or the next section
+    st.markdown('<div id="dashboard-start"></div>', unsafe_allow_html=True)
 
 # -----------------------------
 # Main
@@ -188,15 +202,14 @@ def main():
         finally:
             st.session_state["_seed_done"] = True
 
-    # --- Hero blurb ---
+    # --- Hero blurb (non-branded headline) ---
     hero_block(user_name=name)
 
-    # --- Route to dashboards (dashboards own sidebar sections like Navigation/Quick Controls) ---
+    # --- Route to dashboards (dashboards own sidebar sections) ---
     if email and is_caregiver(email):
         ml_caregiver_dashboard()
     else:
         music_therapy_dashboard()
-
 
 if __name__ == "__main__":
     main()
