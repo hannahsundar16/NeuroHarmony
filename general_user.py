@@ -5,7 +5,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import time
+from uuid import uuid4
 from db import DDB
+
 
 def _load_catalog_from_store() -> dict:
     """Load songs from Firestore and group by category.
@@ -28,8 +30,10 @@ def _load_catalog_from_store() -> dict:
         st.warning("Unable to load songs from the database right now. Please try again later.")
         return {}
 
+
 # Lazily-loaded catalog to avoid blocking at import time
 CATALOG = {}
+
 
 def get_catalog() -> dict:
     """Return cached catalog; load from store on first access."""
@@ -37,6 +41,7 @@ def get_catalog() -> dict:
     if not CATALOG:
         CATALOG = _load_catalog_from_store()
     return CATALOG
+
 
 def initialize_session_state():
     """Initialize session state variables"""
@@ -59,6 +64,7 @@ def initialize_session_state():
     if 'session_started' not in st.session_state:
         st.session_state.session_started = False
 
+
 def get_caregiver_scores_for_user(user_email: str):
     """Return caregiver-provided cognitive scores dict for this user if available."""
     if not user_email:
@@ -71,6 +77,7 @@ def get_caregiver_scores_for_user(user_email: str):
     if not isinstance(scores, dict):
         return None
     return scores
+
 
 def get_recommended_playlist_for_user(user_email: str, max_tracks: int = 6):
     if not user_email:
@@ -116,12 +123,16 @@ def get_recommended_playlist_for_user(user_email: str, max_tracks: int = 6):
             break
     return playlist
 
+
 def music_player_widget(track):
     """Create a music player widget with real audio playback."""
     if track:
         # Basic info
-        st.write(f"**{track['name']}**")
-        st.caption(f"Duration: {track['duration']//60}:{track['duration']%60:02d} • BPM: {track['bpm']}")
+        name = track.get('name', 'Unknown')
+        duration_val = int(track.get('duration', 0))
+        bpm_val = track.get('bpm', '—')
+        st.write(f"**{name}**")
+        st.caption(f"Duration: {duration_val//60}:{duration_val%60:02d} • BPM: {bpm_val}")
 
         # Play only if the track has an explicit URL configured
         audio_url = track.get('url')
@@ -130,17 +141,35 @@ def music_player_widget(track):
         else:
             st.warning("No audio URL configured for this track yet. Please add a URL to play.")
 
-def track_card(track, category):
+
+def _safe_track_id(track) -> str:
+    """Return a stable string id for a track; fallback if missing."""
+    tid = track.get('id') or track.get('song_id')
+    if tid is None:
+        # fallback to a deterministic-ish composite; final fallback to uuid
+        base = f"{track.get('name','')}-{track.get('url','')}-{track.get('key','')}"
+        tid = base if base.strip('-') else str(uuid4())
+    return str(tid)
+
+
+def track_card(track, category, key_prefix: str = "card"):
     """Create a track card with play button and details"""
+    tid = _safe_track_id(track)
+    name = track.get('name', 'Unknown')
+    duration_val = int(track.get('duration', 0))
+    bpm_val = track.get('bpm', '—')
+    key_val = track.get('key', '—')
+
     with st.container():
         col1, col2, col3 = st.columns([1, 4, 1])
         with col1:
-            if st.button("▶️", key=f"card_play_{track['id']}"):
+            # Key now namespaced by the section (key_prefix) + track id
+            if st.button("▶️", key=f"{key_prefix}_play_{tid}"):
                 # Attach category to track so the audio URL can be resolved
                 st.session_state.current_track = {**track, 'category': category}
                 st.session_state.is_playing = True
                 st.session_state.playback_position = 0
-                
+
                 # Add to listening history
                 st.session_state.listening_history.append({
                     'timestamp': datetime.now(),
@@ -155,26 +184,29 @@ def track_card(track, category):
                 })
 
         with col2:
-            st.markdown(f"""
-            **{track['name']}**  
-            Category: {category} | Duration: {track['duration']//60}:{track['duration']%60:02d} | BPM: {track['bpm']}  
-            Key: {track['key']}
-            """)
+            st.markdown(
+                f"""
+**{name}**  
+Category: {category} | Duration: {duration_val//60}:{duration_val%60:02d} | BPM: {bpm_val}  
+Key: {key_val}
+                """
+            )
             # If this track is currently selected, render the audio player here
-            if st.session_state.current_track and st.session_state.current_track.get('id') == track['id']:
-                music_player_widget(st.session_state.current_track)
+            curr = st.session_state.current_track
+            if curr and _safe_track_id(curr) == tid:
+                music_player_widget(curr)
 
         with col3:
             st.empty()
 
-        
+
 def general_user_dashboard():
     """Main dashboard for general users with music therapy features"""
     initialize_session_state()
     catalog = get_catalog()
-    
+
     user_info = st.session_state.user_info
-    
+
     st.title("🎵 Music Therapy Portal")
     st.markdown(f"Welcome, **{user_info['name']}**! Discover your optimal melodies for cognitive enhancement.")
 
@@ -193,15 +225,15 @@ def general_user_dashboard():
             "Select Feature",
             ["Dashboard", "Music Library", "Trend Analysis"]
         )
-        
+
         st.markdown("---")
         st.markdown("### 🎛️ Quick Controls")
 
         # Current track display
         if st.session_state.current_track:
             st.markdown("**Now Playing:**")
-            st.write(st.session_state.current_track['name'])
-        
+            st.write(st.session_state.current_track.get('name', 'Unknown'))
+
         # Playback control
         if st.button("⏹️ Stop", use_container_width=True):
             st.session_state.current_track = None
@@ -210,7 +242,7 @@ def general_user_dashboard():
             # Log stop event to Firestore
             user_email = (st.session_state.get('user_info', {}) or {}).get('email', '')
             DDB().log_event(user_email, 'stop', {})
-        
+
         st.markdown("---")
 
     if page == "Dashboard":
@@ -229,7 +261,7 @@ def general_user_dashboard():
                 st.metric("Login Sessions", sessions)
             with c2:
                 st.caption(f"Last login: {st.session_state['login_sessions'][-1].strftime('%Y-%m-%d %H:%M')}")
-        
+
         # Caregiver-linked recommendations and featured tracks
         col1, col2 = st.columns(2)
 
@@ -259,15 +291,16 @@ def general_user_dashboard():
                 st.markdown("---")
 
             if rec_playlist:
-                for track in rec_playlist:
-                    track_card(track, track['category'])
+                for i, track in enumerate(rec_playlist):
+                    track_card(track, track['category'], key_prefix=f"rec_{i}")
                 st.markdown("---")
+
             st.subheader("🌟 Featured Tracks")
             # Show a few tracks from each category
             for cat in list(catalog.keys())[:2]:
                 st.markdown(f"#### {cat}")
-                for track in catalog.get(cat, [])[:2]:
-                    track_card(track, cat)
+                for i, track in enumerate(catalog.get(cat, [])[:2]):
+                    track_card(track, cat, key_prefix=f"feat_{cat}_{i}")
 
         with col2:
             st.subheader("🎯 Tips")
@@ -275,7 +308,7 @@ def general_user_dashboard():
 
     elif page == "Music Library":
         st.subheader("🎼 Music Library")
-        
+
         # Category filter
         catalog = get_catalog()
         available_categories = sorted(list(catalog.keys()))
@@ -287,31 +320,31 @@ def general_user_dashboard():
 
         # Search
         search_term = st.text_input("🔍 Search tracks", placeholder="Enter track name...")
-        
+
         # Display tracks by category
         if not catalog:
             st.info("No songs available. Please add songs to Firestore.")
         for category in selected_categories:
             if category in catalog:
                 st.markdown(f"### {category} 🎵")
-                
+
                 tracks = catalog.get(category, [])
-                
+
                 # Filter by search term
                 if search_term:
-                    tracks = [t for t in tracks if search_term.lower() in t['name'].lower()]
-                
+                    tracks = [t for t in tracks if search_term.lower() in t.get('name', '').lower()]
+
                 if tracks:
-                    for track in tracks:
-                        track_card(track, category)
+                    for i, track in enumerate(tracks):
+                        track_card(track, category, key_prefix=f"lib_{category}_{i}")
                 else:
                     st.info(f"No tracks found matching '{search_term}' in {category} category.")
-                
+
                 st.markdown("---")
 
     elif page == "Trend Analysis":
         st.subheader("📈 Trend Analysis")
-        
+
         # Show music categories listened so far
         history = st.session_state.get('listening_history', [])
         if history:
@@ -359,6 +392,3 @@ def general_user_dashboard():
 
         else:
             st.info("No listening activity yet. Play some tracks to see your category trends here.")
-        
-
-        
