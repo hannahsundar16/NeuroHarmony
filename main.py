@@ -19,7 +19,7 @@ st.set_page_config(
 )
 
 # -----------------------------
-# Global styles (lilac theme + sane layout)
+# Global styles (lilac theme + sane layout + hero blurb)
 # -----------------------------
 st.markdown(
     """
@@ -34,34 +34,47 @@ st.markdown(
       }
       [data-testid="stDecoration"] { background: transparent !important; }
 
-      /* Sidebar: same lilac; let dashboards add their own headings */
+      /* Sidebar: lilac background */
       [data-testid="stSidebar"] {
         background-color: #E6E6FA !important;
         border-right: 0;
       }
       [data-testid="stSidebar"] * { color: #222 !important; }
 
-      /* Bring content closer to header and control width for nicer line length */
+      /* Content width & padding */
       main .block-container {
         padding-top: 0.6rem;
         max-width: 1180px;
       }
 
-      /* Make buttons a bit softer */
+      /* Buttons */
       .stButton>button { border-radius: 10px !important; }
 
-      /* Center helper */
-      .nh-center { text-align: center; }
-
-      /* Small, subtle tagline */
-      .nh-tagline {
-        color: #4a4a4a;
-        font-size: 15px;
-        margin-top: 8px;
+      /* Hero blurb styles */
+      body, .stApp, .markdown-text-container {
+        font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+      }
+      .nh-hero-wrap {
+        display: flex; align-items: center; justify-content: center; gap: 44px;
+        margin: 10px 0 20px 0; flex-wrap: wrap;
+      }
+      .nh-hero-left { max-width: 620px; }
+      .nh-hero-title {
+        font-size: 44px; line-height: 1.15; font-weight: 800; margin: 0 0 12px 0;
+        letter-spacing: -0.5px; color: #212529;
+      }
+      .nh-hero-copy {
+        font-size: 18px; line-height: 1.65; color: #3f3f46; margin: 0 0 6px 0;
+      }
+      .nh-hero-caption {
+        font-size: 14px; color: #6b7280; margin-top: 8px;
+      }
+      .nh-hero-img {
+        border-radius: 14px;
+        box-shadow: 0 4px 22px rgba(26, 20, 90, 0.06);
       }
 
-      /* Simple divider with sensible spacing */
-      .nh-divider { margin: 12px 0 18px 0; border: none; height: 1px; background: rgba(0,0,0,0.08); }
+      .nh-divider { margin: 16px 0 22px 0; border: none; height: 1px; background: rgba(0,0,0,0.08); }
     </style>
     """,
     unsafe_allow_html=True,
@@ -78,13 +91,12 @@ def is_caregiver(email: str) -> bool:
     return email.lower() in (e.lower() for e in CAREGIVER_EMAILS)
 
 # -----------------------------
-# Auth helper (no sidebar headings here!)
+# Auth helper
 # -----------------------------
 def get_user_simple() -> Optional[Dict[str, Any]]:
     exp_user = getattr(st, "experimental_user", None)
     has_login = hasattr(st, "login") and hasattr(st, "logout")
 
-    # Put ONLY login/logout in sidebar; dashboards own the rest.
     with st.sidebar:
         if exp_user is not None and hasattr(exp_user, "is_logged_in") and has_login:
             if not exp_user.is_logged_in:
@@ -99,27 +111,42 @@ def get_user_simple() -> Optional[Dict[str, Any]]:
             st.info("Sign-in not available in this environment.")
             return None
 
-    # If we get here, user is logged in
     name = getattr(exp_user, "name", None) or getattr(exp_user, "username", None) or "User"
     email = getattr(exp_user, "email", None) or ""
     return {"name": name, "email": email}
 
 # -----------------------------
-# Hero (simple, no card/shadow)
+# Hero blurb
 # -----------------------------
 def hero_block(user_name: str):
     app_dir = Path(__file__).parent
-    logo_path = app_dir / "neuroharmony.png"  # ensure file exists
+    # Swap this illustration with your own if available
+    illo_path = app_dir / "hero_illustration.png"
+    logo_path = app_dir / "neuroharmony.png"
+    img_path = str(illo_path if illo_path.exists() else logo_path)
 
-    c1, c2, c3 = st.columns([1, 2, 1])
-    with c2:
-        st.markdown('<div class="nh-center">', unsafe_allow_html=True)
-        st.image(str(logo_path), width=420)
-        st.markdown(
-            f"<div class='nh-tagline'>Hello, <b>{user_name}</b> — personalized music for mind & wellness</div>",
-            unsafe_allow_html=True,
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div class="nh-hero-wrap">
+          <div class="nh-hero-left">
+            <h1 class="nh-hero-title">NeuroHarmony</h1>
+            <p class="nh-hero-copy">
+              EEG-guided music therapy: upload EEG sessions, predict genre affinity,
+              and generate engagement &amp; focus scores to personalize listening plans.
+            </p>
+            <div class="nh-hero-caption">
+              Hello, <b>{user_name}</b> — personalized music for mind &amp; wellness<br/>
+              <span style="opacity:.9;">EEG Frequency Bands (Delta, Theta, Alpha, Beta, Gamma)</span>
+            </div>
+          </div>
+          <div>
+            <img src="file://{img_path}" alt="Brain & music illustration"
+                 width="360" class="nh-hero-img"/>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     st.markdown('<div class="nh-divider"></div>', unsafe_allow_html=True)
 
@@ -142,7 +169,7 @@ def main():
             _ = ddb.upsert_user(email, name)
             _ = ddb.log_event(email, "login", {})
         except Exception:
-            pass  # don't block UI if DB is down
+            pass
 
     # --- One-time seed for songs collection if empty ---
     if not st.session_state.get("_seed_done"):
@@ -156,15 +183,10 @@ def main():
         finally:
             st.session_state["_seed_done"] = True
 
-    # --- Brand hero once, then let dashboard handle page & sidebar sections ---
+    # --- Hero blurb ---
     hero_block(user_name=name)
 
-    # IMPORTANT: Do NOT create any sidebar sections here.
-    # Your dashboards (general_user / caregiver) should render:
-    # - Navigation (selectbox)
-    # - Quick Controls (Stop, Now Playing, etc.)
-    # This prevents duplicates.
-
+    # --- Route to dashboards ---
     if email and is_caregiver(email):
         ml_caregiver_dashboard()
     else:
