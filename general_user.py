@@ -245,7 +245,7 @@ def general_user_dashboard():
 
         st.markdown("---")
 
-    if page == "Dashboard":
+    if page == "🎛️ Wellness Dashboard":
         # Music player section
         if st.session_state.current_track:
             st.subheader("🎵 Now Playing")
@@ -307,7 +307,7 @@ def general_user_dashboard():
             st.subheader("🎯 Tips")
             st.info("Explore categories in the Music Library and pick what you enjoy.")
 
-    elif page == "Music Library":
+    elif page == "🎼 Music Library":
         st.subheader("🎼 Music Library")
 
         # Category filter
@@ -343,7 +343,7 @@ def general_user_dashboard():
 
                 st.markdown("---")
 
-    elif page == "Trend Analysis":
+    elif page == "📊 Insights":
         st.subheader("📈 Trend Analysis")
 
         # Show music categories listened so far
