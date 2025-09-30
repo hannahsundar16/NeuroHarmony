@@ -271,8 +271,8 @@ def general_user_dashboard():
             # Show caregiver-provided cognitive scores if present
             scores = get_caregiver_scores_for_user(user_email)
             rec_playlist = get_recommended_playlist_for_user(user_email)
-            if scores or rec_playlist:
-                st.subheader("🩺 Recommended by Caregiver")
+            if scores:
+                st.subheader("🩺 Neural Engagement Scores")
             if scores:
                 c1, c2, c3 = st.columns(3)
 
@@ -291,6 +291,7 @@ def general_user_dashboard():
                 st.markdown("---")
 
             if rec_playlist:
+                 st.subheader("🩺 Recommended by Caregiver")
                 for i, track in enumerate(rec_playlist):
                     track_card(track, track['category'], key_prefix=f"rec_{i}")
                 st.markdown("---")
