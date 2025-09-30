@@ -8,6 +8,7 @@ from general_user import general_user_dashboard as music_therapy_dashboard
 from caregiver import caregiver_dashboard as ml_caregiver_dashboard
 from db import DDB
 
+
 # -----------------------------
 # Page setup
 # -----------------------------
@@ -15,11 +16,11 @@ st.set_page_config(
     page_title="NeuroHarmony",
     page_icon="🎵",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded"
 )
 
 # -----------------------------
-# Global styles (lilac theme + sane layout)
+# Global styles (lilac theme + header recolor + spacing fixes)
 # -----------------------------
 st.markdown(
     """
@@ -27,44 +28,33 @@ st.markdown(
       /* App background */
       .stApp { background-color: #E6E6FA; }
 
-      /* Header: match background, remove shadow/gap */
-      [data-testid="stHeader"], [data-testid="stToolbar"] {
+      /* Recolor Streamlit header (remove white strip and shadow) */
+      [data-testid="stHeader"] {
         background-color: #E6E6FA !important;
         box-shadow: none !important;
       }
+
+      /* Some builds show a thin white decoration under header */
       [data-testid="stDecoration"] { background: transparent !important; }
 
-      /* Sidebar: same lilac; let dashboards add their own headings */
+      /* Optional: also make the toolbar transparent */
+      [data-testid="stToolbar"] { background: transparent !important; }
+
+      /* Sidebar background to lilac */
       [data-testid="stSidebar"] {
         background-color: #E6E6FA !important;
-        border-right: 0;
-      }
-      [data-testid="stSidebar"] * { color: #222 !important; }
-
-      /* Bring content closer to header and control width for nicer line length */
-      main .block-container {
-        padding-top: 0.6rem;
-        max-width: 1180px;
       }
 
-      /* Make buttons a bit softer */
-      .stButton>button { border-radius: 10px !important; }
-
-      /* Center helper */
-      .nh-center { text-align: center; }
-
-      /* Small, subtle tagline */
-      .nh-tagline {
-        color: #4a4a4a;
-        font-size: 15px;
-        margin-top: 8px;
+      /* Optional: style sidebar text/icons darker for contrast */
+      [data-testid="stSidebar"] * {
+        color: #222 !important;
       }
 
-      /* Simple divider with sensible spacing */
-      .nh-divider { margin: 12px 0 18px 0; border: none; height: 1px; background: rgba(0,0,0,0.08); }
+      /* Reduce top padding so content sits closer to header */
+      main .block-container { padding-top: 0.6rem; }
     </style>
     """,
-    unsafe_allow_html=True,
+    unsafe_allow_html=True
 )
 
 # -----------------------------
@@ -75,58 +65,51 @@ CAREGIVER_EMAILS = [
 ]
 
 def is_caregiver(email: str) -> bool:
-    return email.lower() in (e.lower() for e in CAREGIVER_EMAILS)
+    return email.lower() in [e.lower() for e in CAREGIVER_EMAILS]
 
 # -----------------------------
-# Auth helper (no sidebar headings here!)
+# Auth helper
 # -----------------------------
 def get_user_simple() -> Optional[Dict[str, Any]]:
     exp_user = getattr(st, "experimental_user", None)
     has_login = hasattr(st, "login") and hasattr(st, "logout")
 
-    # Put ONLY login/logout in sidebar; dashboards own the rest.
-    with st.sidebar:
-        if exp_user is not None and hasattr(exp_user, "is_logged_in") and has_login:
+    if exp_user is not None and hasattr(exp_user, "is_logged_in") and has_login:
+        with st.sidebar:
             if not exp_user.is_logged_in:
-                if st.button("Log in with Google", type="primary", use_container_width=True):
+                if st.button("Log in with Google", type="primary"):
                     st.login()
                 return None
             else:
-                if st.button("Log out", type="secondary", use_container_width=True):
+                if st.button("Log out", type="secondary"):
                     st.logout()
                     return None
-        else:
-            st.info("Sign-in not available in this environment.")
-            return None
 
-    # If we get here, user is logged in
-    name = getattr(exp_user, "name", None) or getattr(exp_user, "username", None) or "User"
-    email = getattr(exp_user, "email", None) or ""
-    return {"name": name, "email": email}
-
-# -----------------------------
-# Hero (simple, no card/shadow)
-# -----------------------------
-def hero_block(user_name: str):
-    app_dir = Path(__file__).parent
-    logo_path = app_dir / "neuroharmony.png"  # ensure file exists
-
-    c1, c2, c3 = st.columns([1, 2, 1])
-    with c2:
-        st.markdown('<div class="nh-center">', unsafe_allow_html=True)
-        st.image(str(logo_path), width=420)
+        name = getattr(exp_user, "name", None) or getattr(exp_user, "username", None) or "User"
+        email = getattr(exp_user, "email", None) or ""
         st.markdown(
-            f"<div class='nh-tagline'> personalized music for mind & wellness</div>",
-            unsafe_allow_html=True,
+            f"Hello, <span style='color: orange; font-weight: bold;'>{name}</span>!",
+            unsafe_allow_html=True
         )
-        st.markdown('</div>', unsafe_allow_html=True)
+        return {"name": name, "email": email}
 
-    st.markdown('<div class="nh-divider"></div>', unsafe_allow_html=True)
+    # If experimental auth isn't available, treat as not logged in
+    return None
 
 # -----------------------------
 # Main
 # -----------------------------
 def main():
+    # --- Centered logo at the top ---
+    app_dir = Path(__file__).parent
+    logo_path = app_dir / "neuroharmony.png"  # ensure the file is next to main.py
+
+    c1, c2, c3 = st.columns([1, 2, 1])
+    with c2:
+        # Adjust width as you prefer (e.g., 220–360)
+        st.image(str(logo_path), caption="EEG Frequency Bands", width=500)
+    st.markdown("---")
+
     # --- Authenticate ---
     user = get_user_simple()
     if not user:
@@ -137,12 +120,9 @@ def main():
     email = (user.get("email") or "").strip()
     name = (user.get("name") or "User").strip()
     if email:
-        try:
-            ddb = DDB()
-            _ = ddb.upsert_user(email, name)
-            _ = ddb.log_event(email, "login", {})
-        except Exception:
-            pass  # don't block UI if DB is down
+        ddb = DDB()
+        _ = ddb.upsert_user(email, name)
+        _ = ddb.log_event(email, "login", {})
 
     # --- One-time seed for songs collection if empty ---
     if not st.session_state.get("_seed_done"):
@@ -156,19 +136,13 @@ def main():
         finally:
             st.session_state["_seed_done"] = True
 
-    # --- Brand hero once, then let dashboard handle page & sidebar sections ---
-    hero_block(user_name=name)
-
-    # IMPORTANT: Do NOT create any sidebar sections here.
-    # Your dashboards (general_user / caregiver) should render:
-    # - Navigation (selectbox)
-    # - Quick Controls (Stop, Now Playing, etc.)
-    # This prevents duplicates.
-
-    if email and is_caregiver(email):
+    # --- Route by role ---
+    user_email = (user.get("email") or "").strip()
+    if user_email and is_caregiver(user_email):
         ml_caregiver_dashboard()
     else:
         music_therapy_dashboard()
+
 
 if __name__ == "__main__":
     main()
